@@ -129,6 +129,11 @@ body {
   color: #9fd2ff;
 }
 
+.pick-league {
+  font-size: 11px;
+  color: #c9a3e8;
+}
+
 .muted {
   color: #9a8f76;
 }

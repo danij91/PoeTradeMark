@@ -208,6 +208,18 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   font-weight: 700;
 }
 
+.ptb-sb-league {
+  display: inline-block;
+  margin-top: 4px;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border: 1px solid rgba(201, 163, 232, 0.4);
+  border-radius: 999px;
+  color: #c9a3e8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .ptb-sb-filters {
   display: flex;
   flex-wrap: wrap;

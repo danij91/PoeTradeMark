@@ -134,8 +134,9 @@
       lab.appendChild(cb);
       lab.appendChild(el("span", "pick-name", b.title || b.searchId));
       lab.appendChild(
-        el("span", "pick-realm", b.realm === "kr" ? msg("realmKR", "한국") : msg("realmGlobal", "글로벌"))
+        el("span", "pick-realm", globalThis.PTB && PTB.realmLabel ? PTB.realmLabel(b.realm) : (b.realm || "").toUpperCase())
       );
+      if (b.league) lab.appendChild(el("span", "pick-league", b.league));
       bar.appendChild(lab);
     }
     updateCounts();

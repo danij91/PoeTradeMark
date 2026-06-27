@@ -30,9 +30,9 @@
   }
 
   function getRealmLabel(bookmark) {
-    return bookmark.realm === "kr"
-      ? message("realmKR", "KR")
-      : message("realmGlobal", "Global");
+    return globalThis.PTB && PTB.realmLabel
+      ? PTB.realmLabel(bookmark.realm)
+      : (bookmark.realm || "").toUpperCase();
   }
 
   function createIcon(bookmark) {
@@ -79,6 +79,9 @@
     const heading = makeElement("h2", "bookmark-title", bookmark.title || bookmark.searchId || bookmark.league || "");
     const meta = makeElement("div", "bookmark-meta");
     meta.appendChild(makeElement("span", "realm-badge", getRealmLabel(bookmark)));
+    if (bookmark.league) {
+      meta.appendChild(makeElement("span", "league-badge", bookmark.league));
+    }
 
     content.appendChild(heading);
     content.appendChild(meta);

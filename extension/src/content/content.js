@@ -99,21 +99,17 @@
     }
   };
 
-  // 아이템 유형 필터값. 검색창에 이름이 없을 때 제목 폴백으로 사용. "모두"면 빈 문자열.
+  // 아이템 유형(카테고리). 검색창에 이름이 없을 때 제목 폴백으로 사용.
+  // 고급필터의 첫 드롭다운(.multiselect.filter-select)이 곧 "아이템 유형" 필터(언어 무관).
+  // 선택값은 .multiselect__single 에 들어가고, 미선택(=모두/Any)이면 그 요소가 없어 "" 반환.
   const readItemType = () => {
     try {
-      const filters = document.querySelectorAll(".search-advanced .filter");
-      for (const f of filters) {
-        const t = f.querySelector(".filter-title");
-        if (!t || cleanText(t.textContent).indexOf("아이템 유형") !== 0) continue;
-        const single = f.querySelector(".multiselect.modified .multiselect__single");
-        const v = cleanText(single?.textContent);
-        if (v && v !== "모두") return v;
-      }
+      const ms = document.querySelector(".search-advanced .multiselect.filter-select");
+      const single = ms && ms.querySelector(".multiselect__single");
+      return cleanText(single && single.textContent);
     } catch (_error) {
-      // best-effort
+      return "";
     }
-    return "";
   };
 
   // 적용된 필터들(스탯 + 그 외)을 사람이 읽는 문자열로. 라이브 확인:
@@ -374,13 +370,10 @@
 
     const main = sbEl("div", "ptb-sb-main");
     main.appendChild(sbEl("div", "ptb-sb-title", bookmark.title || bookmark.searchId || ""));
-    main.appendChild(
-      sbEl(
-        "span",
-        "ptb-sb-realm",
-        bookmark.realm === "kr" ? message("realmKR", "KR") : message("realmGlobal", "Global")
-      )
-    );
+    const realmLabel =
+      globalThis.PTB && PTB.realmLabel ? PTB.realmLabel(bookmark.realm) : (bookmark.realm || "").toUpperCase();
+    main.appendChild(sbEl("span", "ptb-sb-realm", realmLabel));
+    if (bookmark.league) main.appendChild(sbEl("span", "ptb-sb-league", bookmark.league));
     if (Array.isArray(bookmark.filters) && bookmark.filters.length) {
       const fwrap = sbEl("div", "ptb-sb-filters");
       for (const mod of bookmark.filters) fwrap.appendChild(sbEl("span", "ptb-sb-chip", mod));

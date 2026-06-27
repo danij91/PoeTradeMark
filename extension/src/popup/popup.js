@@ -59,6 +59,19 @@
     return button;
   }
 
+  // 기본은 현재(활성) 탭에서 이동, Ctrl/⌘+클릭은 새 탭.
+  function navigateActiveTab(url) {
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const t = tabs && tabs[0];
+        if (t && t.id != null) chrome.tabs.update(t.id, { url });
+        else chrome.tabs.create({ url });
+      });
+    } catch (_e) {
+      chrome.tabs.create({ url });
+    }
+  }
+
   async function refresh() {
     const items = await PTB.storage.list();
 
@@ -96,8 +109,10 @@
     }
 
     const actions = makeElement("div", "bookmark-actions");
-    actions.appendChild(createButton(message("jump", "Open"), "button button-primary", () => {
-      chrome.tabs.create({ url: PTB.buildTradeUrl(bookmark) });
+    actions.appendChild(createButton(message("jump", "Open"), "button button-primary", (e) => {
+      const url = PTB.buildTradeUrl(bookmark);
+      if (e && (e.ctrlKey || e.metaKey)) chrome.tabs.create({ url });
+      else navigateActiveTab(url);
     }));
     actions.appendChild(createButton(message("rename", "Rename"), "button", async () => {
       const title = prompt(message("rename", "Rename"), bookmark.title || "");
@@ -134,14 +149,8 @@
       if (code === PTB.i18n.getLang()) opt.selected = true;
       sel.appendChild(opt);
     });
-    sel.addEventListener("change", async () => {
-      PTB.i18n.setLang(sel.value);
-      applyStaticLabels();
-      try {
-        await refresh();
-      } catch (_e) {
-        // ignore
-      }
+    sel.addEventListener("change", () => {
+      PTB.i18n.setLang(sel.value); // onChange 콜백이 재렌더 담당
     });
   }
 
@@ -152,6 +161,12 @@
       } catch (_e) {
         // ignore
       }
+      PTB.i18n.onChange(() => {
+        applyStaticLabels();
+        const sel = document.getElementById("lang-select");
+        if (sel) sel.value = PTB.i18n.getLang();
+        refresh().catch(() => {});
+      });
     }
 
     applyStaticLabels();

@@ -517,12 +517,7 @@
       sel.appendChild(opt);
     });
     sel.addEventListener("change", function () {
-      PTB.i18n.setLang(sel.value);
-      applyStaticI18n();
-      renderSelect();
-      renderStatus();
-      renderHits();
-      updateRecv();
+      PTB.i18n.setLang(sel.value); // onChange 콜백이 재렌더 담당
     });
   }
 
@@ -533,6 +528,15 @@
       } catch (_e) {
         // ignore
       }
+      PTB.i18n.onChange(function () {
+        applyStaticI18n();
+        var sel = $("lang-select");
+        if (sel) sel.value = PTB.i18n.getLang();
+        renderSelect();
+        renderStatus();
+        renderHits();
+        updateRecv();
+      });
     }
     applyStaticI18n();
     setupLangSelect();

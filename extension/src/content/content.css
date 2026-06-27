@@ -266,6 +266,25 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   color: #ffe9b0;
 }
 
+a.ptb-sb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.ptb-sb-lang {
+  max-width: 88px;
+  min-height: 26px;
+  margin-right: 6px;
+  border: 1px solid rgba(255, 214, 128, 0.4);
+  border-radius: 5px;
+  background: #1d1810;
+  color: #f1e6cd;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .ptb-sb-del {
   border-color: rgba(220, 150, 150, 0.5);
   color: #f0b3b3;

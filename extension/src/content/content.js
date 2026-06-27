@@ -343,17 +343,6 @@
     return el;
   };
 
-  const openTradeUrl = (bookmark) => {
-    try {
-      const buildTradeUrl = globalThis.PTB?.buildTradeUrl;
-      if (typeof buildTradeUrl === "function") {
-        globalThis.open(buildTradeUrl(bookmark), "_blank", "noopener");
-      }
-    } catch (_error) {
-      // ignore
-    }
-  };
-
   const buildSidebarRow = (bookmark) => {
     const row = sbEl("div", "ptb-sb-row");
 
@@ -393,9 +382,12 @@
     }
 
     const actions = sbEl("div", "ptb-sb-actions");
-    const jumpBtn = sbEl("button", "ptb-sb-btn ptb-sb-jump", message("jump", "Open"));
-    jumpBtn.type = "button";
-    jumpBtn.addEventListener("click", () => openTradeUrl(bookmark));
+    // 이동 = 실제 링크(<a>). 일반 클릭이면 현재 탭에서 이동, Ctrl/⌘+클릭이면 새 탭(브라우저 기본 동작).
+    const jumpBtn = sbEl("a", "ptb-sb-btn ptb-sb-jump", message("jump", "Open"));
+    try {
+      const buildTradeUrl = globalThis.PTB && PTB.buildTradeUrl;
+      if (typeof buildTradeUrl === "function") jumpBtn.href = buildTradeUrl(bookmark);
+    } catch (_e) {}
     const renameBtn = sbEl("button", "ptb-sb-btn", message("rename", "Rename"));
     renameBtn.type = "button";
     renameBtn.addEventListener("click", async () => {
@@ -467,6 +459,20 @@
     dashBtn.type = "button";
     dashBtn.addEventListener("click", () => openDashboard());
     header.appendChild(dashBtn);
+    if (globalThis.PTB && PTB.i18n) {
+      const langSel = document.createElement("select");
+      langSel.className = "ptb-sb-lang";
+      langSel.title = "🌐 " + message("language", "언어");
+      PTB.i18n.LANGS.forEach((code) => {
+        const opt = document.createElement("option");
+        opt.value = code;
+        opt.textContent = PTB.i18n.LANG_NAMES[code] || code;
+        if (code === PTB.i18n.getLang()) opt.selected = true;
+        langSel.appendChild(opt);
+      });
+      langSel.addEventListener("change", () => PTB.i18n.setLang(langSel.value));
+      header.appendChild(langSel);
+    }
     const closeBtn = sbEl("button", "ptb-sb-close", "✕");
     closeBtn.type = "button";
     closeBtn.addEventListener("click", () => setSidebarOpen(false));
@@ -689,13 +695,26 @@
 
   const start = () => {
     if (globalThis.PTB && PTB.i18n) {
+      // 초기 로드 + 언어 변경(이 탭/팝업/대시보드 어디서든) 시 사이드바 UI 갱신.
+      const applyLocale = function () {
+        try {
+          const toggle = document.getElementById(SIDEBAR_TOGGLE_ID);
+          if (toggle) toggle.textContent = message("sidebarToggle", "★ 목록");
+          reconcile();
+          if (state.sidebar) {
+            const t = state.sidebar.querySelector(".ptb-sb-h-title");
+            if (t) t.textContent = message("popupTitle", "Bookmarks");
+            const db = state.sidebar.querySelector(".ptb-sb-dashbtn");
+            if (db) db.textContent = message("openDash", "📡 라이브");
+            const ls = state.sidebar.querySelector(".ptb-sb-lang");
+            if (ls) ls.value = PTB.i18n.getLang();
+          }
+          if (state.sidebarOpen) renderSidebarList();
+        } catch (_e) {}
+      };
       try {
-        PTB.i18n.init().then(function () {
-          try {
-            reconcile();
-            if (state.sidebarOpen) renderSidebarList();
-          } catch (_e) {}
-        });
+        PTB.i18n.init().then(applyLocale);
+        PTB.i18n.onChange(applyLocale);
       } catch (_e) {}
     }
     patchHistory();

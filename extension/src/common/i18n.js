@@ -175,6 +175,7 @@ globalThis.PTB = globalThis.PTB || {};
   };
   var LANGS = ["ko", "en", "ja", "es", "fr", "de", "th", "ru", "pt"];
   var cur = "ko";
+  var cbs = []; // 언어 변경 시 재렌더 콜백(컨텍스트별 등록)
 
   PTB.i18n = {
     LANGS: LANGS,
@@ -188,6 +189,10 @@ globalThis.PTB = globalThis.PTB || {};
       try {
         chrome.storage.local.set({ ptbLang: l });
       } catch (_e) {}
+    },
+    // 언어가 바뀌면(이 탭 또는 다른 탭/팝업에서) 호출될 재렌더 콜백 등록.
+    onChange: function (cb) {
+      if (typeof cb === "function") cbs.push(cb);
     },
     t: function (key, fallback) {
       var m = M[cur] || M.en || {};
@@ -213,4 +218,18 @@ globalThis.PTB = globalThis.PTB || {};
       }
     },
   };
+
+  // ptbLang 이 어디서든 바뀌면 모든 컨텍스트(팝업·대시보드·열린 거래소 탭)에 즉시 전파.
+  try {
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area !== "local" || !changes.ptbLang) return;
+      var nl = changes.ptbLang.newValue;
+      if (nl && M[nl]) cur = nl;
+      for (var i = 0; i < cbs.length; i += 1) {
+        try {
+          cbs[i](cur);
+        } catch (_e) {}
+      }
+    });
+  } catch (_e) {}
 })();

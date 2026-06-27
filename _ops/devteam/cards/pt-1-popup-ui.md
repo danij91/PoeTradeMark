@@ -1,7 +1,7 @@
 ---
 task: pt-1-popup-ui
 run: pt-1
-status: open          # open → wip → done → merged / blocked
+status: done          # open → wip → done → merged / blocked
 owner: codex
 branch: codex/pt-1-popup-ui
 base: master          # ⚠️ Wave 2 — pt-1-foundation 통합 후의 master에서 분기 (군단장이 dispatch 시점에 보장)
@@ -58,3 +58,5 @@ files:
 ---
 
 ## LOG  (Codex append — 카드만 수정, BOARD.md 건드리지 말 것)
+
+- 2026-06-27 Codex: Built popup UI scaffold with bookmark list rendering, realm badges, jump/rename/delete actions using PTB globals, and popup styling. Verified `node --check src/popup/popup.js` passes and popup.html script order is common url/storage before popup.js.

@@ -1,7 +1,7 @@
 ---
 task: pt-1-content-capture
 run: pt-1
-status: done          # open → wip → done → merged / blocked
+status: merged          # open → wip → done → merged / blocked
 owner: codex
 branch: codex/pt-1-content-capture
 base: master          # ⚠️ Wave 2 — pt-1-foundation 통합 후의 master에서 분기 (군단장이 dispatch 시점에 보장)

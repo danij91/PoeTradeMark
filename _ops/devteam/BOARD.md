@@ -12,8 +12,8 @@
 | task | wave | status | branch | 파일범위 | 한 줄 |
 |---|---|---|---|---|---|
 | pt-1-foundation | 1 | merged | (claude 직접·claude/dreamy-rhodes-74fd39) | manifest.json · src/common/** · _locales/** | manifest + url.js/storage.js(PTB 계약) + ko i18n |
-| pt-1-content-capture | 2 | open | codex/pt-1-content-capture | src/content/** | 거래소 페이지 "★즐겨찾기" 버튼 주입 + 클릭 저장(아이콘·제목 best-effort) |
-| pt-1-popup-ui | 2 | open | codex/pt-1-popup-ui | src/popup/** | 즐겨찾기 목록(썸네일+제목+realm) + 이동/이름변경/삭제 |
+| pt-1-content-capture | 2 | merged | codex/pt-1-content-capture | src/content/** | 거래소 페이지 "★즐겨찾기" 버튼 주입 + 클릭 저장(아이콘·제목 best-effort) |
+| pt-1-popup-ui | 2 | merged | codex/pt-1-popup-ui | src/popup/** | 즐겨찾기 목록(썸네일+제목+realm) + 이동/이름변경/삭제 |
 
 > disjoint 확인: foundation(manifest+common+locales) / content(src/content) / popup(src/popup) — 파일 0겹침. content·popup은 common을 **읽기만**.
-> Wave2 base = `aa65c13`(foundation, `claude/dreamy-rhodes-74fd39`). 워크트리 2개 생성 완료 — `../poeTradeBookmark.wt/pt-1-{content-capture,popup-ui}`. **Codex 하달 대기**(2026-06-27): codex.exe PATH 등록 후 `codex-launch.ps1` 카드별 발사.
+> Wave2: Codex 군단(gpt-5.5·격리홈) 병렬 실행 완료 → `2381d6f`(popup-ui)·`641f8a2`(content-capture), 통합 머지 `58ed54f`·`448e1f7`. 다음 = 라이브검증(Chrome) → master 머지(사용자 확인).

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "__MSG_extDesc__",
   "default_locale": "ko",
-  "permissions": ["storage", "unlimitedStorage"],
+  "permissions": ["storage", "unlimitedStorage", "tabs", "tabGroups"],
   "host_permissions": ["*://*.pathofexile.com/*", "*://poe.kakaogames.com/*"],
   "action": {
     "default_popup": "src/popup/popup.html"
@@ -21,6 +21,12 @@
       "js": ["src/content/live.js"],
       "world": "MAIN",
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/dashboard/dashboard.html"],
+      "matches": ["*://*.pathofexile.com/*", "*://poe.kakaogames.com/*"]
     }
   ]
 }

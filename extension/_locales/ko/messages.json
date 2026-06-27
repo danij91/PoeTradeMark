@@ -13,9 +13,9 @@
   "noTitle": { "message": "제목 없음" },
   "sidebarToggle": { "message": "★ 목록" },
   "openDash": { "message": "📡 라이브" },
-  "liveTitle": { "message": "라이브 대시보드" },
-  "liveNone": { "message": "라이브 켠 검색이 없습니다 — 목록에서 📡 로 켜세요" },
+  "openDashboard": { "message": "📡 라이브 대시보드" },
+  "openInTrade": { "message": "거래소로" },
   "liveWaiting": { "message": "새 매물 대기 중…" },
-  "copyWhisper": { "message": "귓속말 복사" },
-  "copied": { "message": "복사됨!" }
+  "liveIdle": { "message": "검색을 고르고 ‘시작’을 누르면 라이브 매물이 여기에 모입니다." },
+  "goHideout": { "message": "🏠 은신처로 이동" }
 }

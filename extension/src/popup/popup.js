@@ -119,6 +119,18 @@
       titleEl.textContent = message("popupTitle", "PoE Trade Bookmark");
     }
 
+    const dashBtn = document.getElementById("open-dash");
+    if (dashBtn) {
+      dashBtn.textContent = message("openDashboard", "📡 라이브 대시보드");
+      dashBtn.addEventListener("click", () => {
+        try {
+          chrome.tabs.create({ url: chrome.runtime.getURL("src/dashboard/dashboard.html") });
+        } catch (_error) {
+          // ignore
+        }
+      });
+    }
+
     try {
       await refresh();
     } catch (error) {

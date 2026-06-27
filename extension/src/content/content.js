@@ -15,6 +15,7 @@
     feedbackTimer: 0,
     sidebar: null,
     sidebarOpen: false,
+    workerMode: false,
   };
 
   const message = (key, fallback) => {
@@ -296,6 +297,7 @@
   };
 
   function reconcile() {
+    if (state.workerMode) return;
     try {
       const href = globalThis.location?.href || "";
       const info = parseCurrentUrl();
@@ -471,7 +473,7 @@
     header.appendChild(sbEl("span", "ptb-sb-h-title", message("popupTitle", "Bookmarks")));
     const dashBtn = sbEl("button", "ptb-sb-dashbtn", message("openDash", "📡 라이브"));
     dashBtn.type = "button";
-    dashBtn.addEventListener("click", () => setDashOpen(true));
+    dashBtn.addEventListener("click", () => openDashboard());
     header.appendChild(dashBtn);
     const closeBtn = sbEl("button", "ptb-sb-close", "✕");
     closeBtn.type = "button";
@@ -503,6 +505,7 @@
   };
 
   function setSidebarOpen(open) {
+    if (state.workerMode) return;
     state.sidebarOpen = open;
     const sidebar = ensureSidebar();
     if (sidebar) sidebar.classList.toggle("ptb-open", open);
@@ -522,6 +525,7 @@
   }
 
   const ensureSidebarToggle = () => {
+    if (state.workerMode) return;
     if (!document.body || document.getElementById(SIDEBAR_TOGGLE_ID)) return;
     const toggle = sbEl("button", "ptb-sidebar-toggle", message("sidebarToggle", "★ 목록"));
     toggle.id = SIDEBAR_TOGGLE_ID;
@@ -547,41 +551,18 @@
     }
   };
 
-  // ── 라이브검색 대시보드 (풀스크린 · 다중 라이브 집계) ──────────────────
+  // ── 라이브 선택 + 워커 릴레이 ───────────────────────────────────────
+  // "어떤 검색을 라이브로 볼지" 선택만 여기서 관리(ptbLive 저장). 실제 집계·표시는
+  // 대시보드 페이지(dashboard.html)가 백그라운드 워커 탭으로 수행한다.
+  // 이 탭이 워커로 지정되면(대시보드가 연 탭) UI를 숨기고 live.js 가 가로챈 매물을 중계.
   const LIVE_KEY = "ptbLive";
   const LIVE_MAX = 5; // 동시 라이브 하드캡(실측 확인)
-  const live = { set: [], hits: [], dash: null, open: false, status: {} };
+  const live = { set: [] };
 
-  const copyText = async (text) => {
+  const DASH_URL = "src/dashboard/dashboard.html";
+  const openDashboard = () => {
     try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (_e) {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
-        return true;
-      } catch (_e2) {
-        return false;
-      }
-    }
-  };
-
-  const sendLiveSet = () => {
-    try {
-      window.postMessage(
-        {
-          source: "ptb",
-          cmd: "live-set",
-          list: live.set.map((x) => ({ league: x.league, searchId: x.searchId })),
-        },
-        location.origin
-      );
+      window.open(chrome.runtime.getURL(DASH_URL), "_blank", "noopener");
     } catch (_e) {
       // ignore
     }
@@ -592,10 +573,6 @@
   };
 
   const isLive = (searchId) => live.set.some((x) => x.searchId === searchId);
-  const sourceTitle = (searchId) => {
-    const x = live.set.find((s) => s.searchId === searchId);
-    return x ? x.title : searchId;
-  };
 
   // true=처리됨, false=캡 초과로 거부
   function setBookmarkLive(bookmark, on) {
@@ -603,167 +580,114 @@
       if (isLive(bookmark.searchId)) return true;
       if (live.set.length >= LIVE_MAX) return false;
       live.set.push({
+        host: bookmark.host,
         league: bookmark.league,
         searchId: bookmark.searchId,
+        realm: bookmark.realm,
+        type: bookmark.type,
         title: bookmark.title || bookmark.searchId,
       });
     } else {
       live.set = live.set.filter((x) => x.searchId !== bookmark.searchId);
     }
     persistLive();
-    sendLiveSet();
     if (state.sidebarOpen) renderSidebarList();
-    if (live.open) renderDash();
     return true;
   }
 
-  const frameColor = (ft) => {
-    if (ft === 1) return "#8aa9ff"; // 마법
-    if (ft === 2) return "#ffe873"; // 희귀
-    if (ft === 3) return "#cf8a3d"; // 고유
-    return "#ece3d0"; // 일반/기타
+  // 워커 모드: 이 탭은 대시보드가 연 백그라운드 라이브 수집기.
+  // 페이지 UI를 숨기고 live.js 에 캡처 시작을 지시한다.
+  const enterWorkerMode = () => {
+    if (state.workerMode) return;
+    state.workerMode = true;
+    try { hideButton(); } catch (_e) {}
+    try {
+      if (state.sidebar) state.sidebar.remove();
+      state.sidebar = null;
+    } catch (_e) {}
+    try {
+      const t = document.getElementById(SIDEBAR_TOGGLE_ID);
+      if (t) t.remove();
+    } catch (_e) {}
+    try {
+      if (document.body) document.body.classList.remove("ptb-has-sidebar");
+    } catch (_e) {}
+    let n = 0;
+    const fire = () => {
+      try {
+        window.postMessage({ source: "ptb", cmd: "worker-start" }, location.origin);
+      } catch (_e) {}
+      if ((n += 1) < 3) setTimeout(fire, 1000); // live.js 준비 타이밍 대비 재전송
+    };
+    fire();
   };
 
-  const buildHitCard = (hit) => {
-    const card = sbEl("article", "ptb-dash-card");
-
-    const thumb = sbEl("div", "ptb-dash-thumb");
-    if (hit.icon) {
-      const img = document.createElement("img");
-      img.src = hit.icon;
-      img.alt = "";
-      img.loading = "lazy";
-      thumb.appendChild(img);
-    }
-    card.appendChild(thumb);
-
-    const body = sbEl("div", "ptb-dash-body");
-    const head = sbEl("div", "ptb-dash-head");
-    const nm = sbEl(
-      "span",
-      "ptb-dash-name",
-      [hit.name, hit.typeLine].filter(Boolean).join(" ").trim() || "?"
-    );
-    nm.style.color = frameColor(hit.frameType);
-    head.appendChild(nm);
-    if (hit.corrupted) head.appendChild(sbEl("span", "ptb-dash-corrupt", "타락"));
-    body.appendChild(head);
-
-    const meta = sbEl("div", "ptb-dash-meta");
-    if (hit.price) meta.appendChild(sbEl("span", "ptb-dash-price", hit.price));
-    if (hit.ilvl) meta.appendChild(sbEl("span", "ptb-dash-il", "iLvl " + hit.ilvl));
-    meta.appendChild(sbEl("span", "ptb-dash-src", "◈ " + (hit.__source || "")));
-    if (hit.account) meta.appendChild(sbEl("span", "ptb-dash-acc", hit.account));
-    body.appendChild(meta);
-
-    if (Array.isArray(hit.mods) && hit.mods.length) {
-      const mods = sbEl("div", "ptb-dash-mods");
-      for (const m of hit.mods) mods.appendChild(sbEl("div", "ptb-dash-mod", m));
-      body.appendChild(mods);
-    }
-
-    if (hit.whisper) {
-      const w = sbEl("button", "ptb-dash-wbtn", message("copyWhisper", "귓속말 복사"));
-      w.type = "button";
-      w.addEventListener("click", async () => {
-        const ok = await copyText(hit.whisper);
-        const prev = w.textContent;
-        w.textContent = ok ? message("copied", "복사됨!") : "복사 실패";
-        setTimeout(() => {
-          try { w.textContent = prev; } catch (_e) {}
-        }, 1400);
-      });
-      body.appendChild(w);
-    }
-
-    card.appendChild(body);
-    return card;
-  };
-
-  const renderDash = () => {
-    const d = live.dash;
-    if (!d) return;
-    const chips = d.querySelector(".ptb-dash-searches");
-    if (chips) {
-      chips.textContent = "";
-      if (!live.set.length) {
-        chips.appendChild(
-          sbEl("span", "ptb-dash-empty2", message("liveNone", "라이브 켠 검색이 없습니다 — 목록에서 📡 로 켜세요"))
-        );
-      } else {
-        for (const s of live.set) {
-          const st = live.status[s.searchId];
-          const on = st === "auth" || st === "open";
-          chips.appendChild(sbEl("span", "ptb-dash-schip" + (on ? " ptb-on" : ""), s.title));
-        }
+  // 대시보드 중계: 워커 탭의 해당 매물 줄에서 사이트 공식 버튼을 대신 클릭(동작은 사이트가 수행).
+  const doRowAction = (_act, id) => {
+    try {
+      if (!id) return { ok: false, reason: "no-id" };
+      // 라이브 모드는 .resultset 가 아닌 다른 컨테이너에 줄을 그린다 → data-id 로 폭넓게 찾는다.
+      const node = document.querySelector('[data-id="' + id + '"]');
+      const row = node ? node.closest(".row") || node : null;
+      if (!row) return { ok: false, reason: "no-row" };
+      // 은신처로 이동 = .direct-btn (Travel to Hideout). 만료 매물이면 새로고침 먼저 시도.
+      const btn = row.querySelector(".direct-btn");
+      if (!btn) return { ok: false, reason: "no-button" };
+      if (btn.classList.contains("expire")) {
+        const refresh = row.querySelector("button.refresh");
+        if (refresh) refresh.click();
       }
-    }
-    const list = d.querySelector(".ptb-dash-hits");
-    if (list) {
-      list.textContent = "";
-      if (!live.hits.length) {
-        list.appendChild(sbEl("p", "ptb-dash-waiting", message("liveWaiting", "새 매물 대기 중…")));
-      } else {
-        for (const h of live.hits) list.appendChild(buildHitCard(h));
-      }
-    }
-  };
-
-  function setDashOpen(open) {
-    live.open = open;
-    const d = ensureDash();
-    if (d) d.classList.toggle("ptb-open", open);
-    if (open) {
-      sendLiveSet();
-      renderDash();
-    }
-  }
-
-  function ensureDash() {
-    if (live.dash && document.body && document.body.contains(live.dash)) return live.dash;
-    if (!document.body) return null;
-    const d = sbEl("div", "ptb-dash");
-    const header = sbEl("div", "ptb-dash-header");
-    header.appendChild(sbEl("span", "ptb-dash-title", message("liveTitle", "라이브 대시보드")));
-    header.appendChild(sbEl("div", "ptb-dash-searches"));
-    const close = sbEl("button", "ptb-dash-close", "✕");
-    close.type = "button";
-    close.addEventListener("click", () => setDashOpen(false));
-    header.appendChild(close);
-    d.appendChild(header);
-    d.appendChild(sbEl("div", "ptb-dash-hits"));
-    document.body.appendChild(d);
-    live.dash = d;
-    return d;
-  }
-
-  const onLiveMessage = (d) => {
-    if (!d || d.source !== "ptb-live") return;
-    if (d.type === "hit" && Array.isArray(d.items)) {
-      const src = sourceTitle(d.searchId);
-      const stamped = d.items.map((it) => Object.assign({ __source: src }, it));
-      live.hits = stamped.concat(live.hits).slice(0, 200);
-      if (live.open) renderDash();
-    } else if (d.type && d.searchId) {
-      live.status[d.searchId] = d.type;
-      if (live.open) renderDash();
+      btn.click();
+      return { ok: true };
+    } catch (_e) {
+      return { ok: false, reason: "error" };
     }
   };
 
   const initLive = () => {
     try {
+      // live.js(MAIN)가 가로챈 매물·상태 → 대시보드로 중계(워커 모드일 때만).
       window.addEventListener("message", (e) => {
-        if (e.source !== window) return;
-        onLiveMessage(e.data);
+        if (e.source !== window || !state.workerMode) return;
+        const d = e.data;
+        if (!d || d.source !== "ptb-live") return;
+        const info = parseCurrentUrl();
+        const searchId = info ? info.searchId : null;
+        try {
+          if (d.type === "items" && Array.isArray(d.items)) {
+            chrome.runtime.sendMessage({ type: "ptb-items", searchId, items: d.items });
+          } else if (d.type === "active") {
+            chrome.runtime.sendMessage({ type: "ptb-status", searchId, status: "active" });
+          } else if (d.type === "failed") {
+            chrome.runtime.sendMessage({ type: "ptb-status", searchId, status: "failed", reason: d.reason });
+          }
+        } catch (_e) {}
       });
+      // 대시보드가 이 탭을 워커로 지정.
+      chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+        if (msg && msg.cmd === "ptb-be-worker") {
+          enterWorkerMode();
+          try { sendResponse({ ok: true }); } catch (_e) {}
+        } else if (msg && msg.cmd === "ptb-pause") {
+          // 라이브검색만 중지(탭은 유지) — 사이트 공식 버튼 토글.
+          try { window.postMessage({ source: "ptb", cmd: "worker-stop" }, location.origin); } catch (_e) {}
+          try { sendResponse({ ok: true }); } catch (_e) {}
+        } else if (msg && msg.cmd === "ptb-resume") {
+          // 라이브검색 다시 시작.
+          try { window.postMessage({ source: "ptb", cmd: "worker-start" }, location.origin); } catch (_e) {}
+          try { sendResponse({ ok: true }); } catch (_e) {}
+        } else if (msg && msg.cmd === "ptb-act") {
+          try { sendResponse(doRowAction(msg.act, msg.id)); } catch (_e) {}
+        }
+        return false;
+      });
+      // 사이드바 📡 상태 표시용으로 선택 집합 로드.
       chrome.storage.local
         .get(LIVE_KEY)
         .then((r) => {
           const saved = (r && r[LIVE_KEY]) || [];
-          if (Array.isArray(saved) && saved.length) {
-            live.set = saved.slice(0, LIVE_MAX);
-            setTimeout(sendLiveSet, 800); // live.js 준비 대기 후 전송
-          }
+          if (Array.isArray(saved)) live.set = saved.slice(0, LIVE_MAX);
+          if (state.sidebarOpen) renderSidebarList();
         })
         .catch(() => {});
     } catch (_error) {

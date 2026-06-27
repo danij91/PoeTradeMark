@@ -9,6 +9,16 @@
   const LIVE_KEY = "ptbLive";
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // 워커 탭에 메시지 — 콜백형으로 보내 lastError 를 소비(콘텐트 스크립트 미준비/탭 닫힘 시
+  // 콜백 없는 sendMessage 는 Promise 거부 → "Receiving end does not exist" 미처리 예외가 됨).
+  const sendToTab = (tabId, m) => {
+    try {
+      chrome.tabs.sendMessage(tabId, m, () => { void chrome.runtime.lastError; });
+    } catch (_e) {
+      // ignore
+    }
+  };
+
   const state = {
     bookmarks: [],
     selected: new Set(), // 북마크 id (검색ID는 리그/realm 달라도 충돌하므로 고유 id 사용)
@@ -401,7 +411,7 @@
       const ex = state.workers.get(b.id);
       if (ex && ex.tabId) {
         ex.status = "loading";
-        try { chrome.tabs.sendMessage(ex.tabId, { cmd: "ptb-resume" }); } catch (_e) {}
+        sendToTab(ex.tabId, { cmd: "ptb-resume" });
         renderStatus();
         await sleep(500); // 재개 동시 폭주 방지
         if (state.gen !== gen) return; // 정지됨
@@ -464,7 +474,7 @@
     state.gen += 1; // 진행 중이던 start() 루프·armWorker 를 즉시 무효화(되살아남 방지)
     for (const [, w] of state.workers) {
       if (w.tabId) {
-        try { chrome.tabs.sendMessage(w.tabId, { cmd: "ptb-pause" }); } catch (_e) {}
+        sendToTab(w.tabId, { cmd: "ptb-pause" });
         w.status = "paused";
       }
     }

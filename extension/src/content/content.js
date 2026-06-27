@@ -629,6 +629,17 @@
     return true;
   }
 
+  // 대시보드(확장 페이지)로 전송 — 콜백형으로 lastError 소비. 대시보드가 닫혀 수신자가 없을 때
+  // 콜백 없는 sendMessage 는 Promise 거부("Receiving end does not exist")가 되는데 try/catch 로는
+  // 못 잡으니 콜백으로 흡수한다.
+  const relayToDash = (m) => {
+    try {
+      chrome.runtime.sendMessage(m, () => { void chrome.runtime.lastError; });
+    } catch (_e) {
+      // ignore
+    }
+  };
+
   // 라이브 시작 지시: live.js 준비 타이밍 대비 worker-start 를 몇 번 재전송한다.
   // 단, 그 사이 정지(liveDesired=false)되면 더 보내지 않아 "정지 후 되살아남"을 막는다.
   let liveFireN = 0;
@@ -710,9 +721,7 @@
         changed.push(st);
       }
     });
-    if (changed.length) {
-      try { chrome.runtime.sendMessage({ type: "ptb-item-state", states: changed }); } catch (_e) {}
-    }
+    if (changed.length) relayToDash({ type: "ptb-item-state", states: changed });
   };
   const scheduleStateScan = () => {
     if (!stateScanTimer) stateScanTimer = setTimeout(scanItemStates, 250); // 변경 몰아서 처리
@@ -765,15 +774,13 @@
         if (!d || d.source !== "ptb-live") return;
         const info = parseCurrentUrl();
         const searchId = info ? info.searchId : null;
-        try {
-          if (d.type === "items" && Array.isArray(d.items)) {
-            chrome.runtime.sendMessage({ type: "ptb-items", searchId, items: d.items });
-          } else if (d.type === "active") {
-            chrome.runtime.sendMessage({ type: "ptb-status", searchId, status: "active" });
-          } else if (d.type === "failed") {
-            chrome.runtime.sendMessage({ type: "ptb-status", searchId, status: "failed", reason: d.reason });
-          }
-        } catch (_e) {}
+        if (d.type === "items" && Array.isArray(d.items)) {
+          relayToDash({ type: "ptb-items", searchId, items: d.items });
+        } else if (d.type === "active") {
+          relayToDash({ type: "ptb-status", searchId, status: "active" });
+        } else if (d.type === "failed") {
+          relayToDash({ type: "ptb-status", searchId, status: "failed", reason: d.reason });
+        }
       });
       // 대시보드가 이 탭을 워커로 지정.
       chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

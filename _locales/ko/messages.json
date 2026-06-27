@@ -1,0 +1,13 @@
+{
+  "extName": { "message": "PoE 거래소 즐겨찾기" },
+  "extDesc": { "message": "PoE 거래소 검색을 즐겨찾기하고 빠르게 다시 엽니다." },
+  "bookmarkButton": { "message": "★ 즐겨찾기" },
+  "popupTitle": { "message": "거래소 즐겨찾기" },
+  "jump": { "message": "이동" },
+  "rename": { "message": "이름변경" },
+  "delete": { "message": "삭제" },
+  "emptyList": { "message": "저장된 즐겨찾기가 없습니다" },
+  "realmKR": { "message": "한국" },
+  "realmGlobal": { "message": "글로벌" },
+  "saved": { "message": "저장됨" }
+}

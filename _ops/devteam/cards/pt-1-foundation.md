@@ -1,7 +1,7 @@
 ---
 task: pt-1-foundation
 run: pt-1
-status: open          # open → wip → done → merged / blocked
+status: merged        # open → wip → done → merged / blocked
 owner: codex
 branch: codex/pt-1-foundation
 base: master          # 하달 시점 HEAD (d6efb43 초기 커밋)
@@ -72,3 +72,5 @@ files:
 ---
 
 ## LOG  (Codex append — 카드만 수정, BOARD.md 건드리지 말 것)
+
+- 2026-06-27 (Claude 직접 빌드 — 핸드오프 허용, 계약 정의자라 시그니처 고정 목적): manifest.json · src/common/url.js · src/common/storage.js · _locales/ko/messages.json 작성. 검증 통과 — `node --check` 2파일 OK, parseTradeUrl/buildTradeUrl 단위(KR·글로벌 예시 + exchange + null + round-trip) 통과, manifest·messages `JSON.parse` OK. 통합 브랜치 `claude/dreamy-rhodes-74fd39`에 커밋. status → merged.

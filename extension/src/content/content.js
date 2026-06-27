@@ -16,6 +16,8 @@
     sidebar: null,
     sidebarOpen: false,
     workerMode: false,
+    liveDesired: false, // 라이브가 "켜져 있어야 하는지"(정지 후 늦게 오는 worker-start 무시용)
+    statesObserved: false, // 매물 상태 MutationObserver 1회만 설치
   };
 
   const message = (key, fallback) => {
@@ -627,10 +629,36 @@
     return true;
   }
 
+  // 라이브 시작 지시: live.js 준비 타이밍 대비 worker-start 를 몇 번 재전송한다.
+  // 단, 그 사이 정지(liveDesired=false)되면 더 보내지 않아 "정지 후 되살아남"을 막는다.
+  let liveFireN = 0;
+  const startLive = () => {
+    state.liveDesired = true;
+    liveFireN = 0;
+    const fire = () => {
+      if (!state.liveDesired) return; // 정지됨 → 중단
+      try {
+        window.postMessage({ source: "ptb", cmd: "worker-start" }, location.origin);
+      } catch (_e) {}
+      if ((liveFireN += 1) < 3) setTimeout(fire, 1000);
+    };
+    fire();
+  };
+
+  const stopLive = () => {
+    state.liveDesired = false; // 이후 오는 worker-start 전송 차단
+    try {
+      window.postMessage({ source: "ptb", cmd: "worker-stop" }, location.origin);
+    } catch (_e) {}
+  };
+
   // 워커 모드: 이 탭은 대시보드가 연 백그라운드 라이브 수집기.
-  // 페이지 UI를 숨기고 live.js 에 캡처 시작을 지시한다.
+  // 페이지 UI를 숨기고 live.js 에 캡처 시작을 지시한다. 이미 워커면 라이브만 (재)시작.
   const enterWorkerMode = () => {
-    if (state.workerMode) return;
+    if (state.workerMode) {
+      startLive();
+      return;
+    }
     state.workerMode = true;
     try { hideButton(); } catch (_e) {}
     try {
@@ -644,14 +672,66 @@
     try {
       if (document.body) document.body.classList.remove("ptb-has-sidebar");
     } catch (_e) {}
-    let n = 0;
-    const fire = () => {
-      try {
-        window.postMessage({ source: "ptb", cmd: "worker-start" }, location.origin);
-      } catch (_e) {}
-      if ((n += 1) < 3) setTimeout(fire, 1000); // live.js 준비 타이밍 대비 재전송
+    observeItemStates();
+    startLive();
+  };
+
+  // ── 매물 상태 관찰(읽기전용) ──────────────────────────────────
+  // 사이트가 라이브 결과 줄(.row)에 그려주는 상태를 그대로 미러링한다.
+  //   · .row.gone + span.error("아이템 사용 불가")  → 팔림/사용 불가(빨강)
+  //   · span.warning("수요가 있는 아이템입니다")     → 수요 많음(노랑)
+  //   · .direct-btn[disabled]/.expire (전송중 active 제외) → 은신처 버튼 만료
+  // data-id 가 곧 매물 id(대시보드 카드와 동일 키)라 그대로 대시보드로 보낸다.
+  const lastRowState = new Map(); // id -> 직렬화 상태(변경분만 전송)
+  let stateScanTimer = 0;
+  const readRowState = (row) => {
+    const id = row.getAttribute("data-id");
+    if (!id) return null;
+    const dbtn = row.querySelector(".direct-btn");
+    const teleporting = !!(dbtn && dbtn.classList.contains("active")); // 클릭 직후 "순간이동 중" — 무시
+    return {
+      id: id,
+      gone: row.classList.contains("gone"),
+      demand: !!row.querySelector("span.warning"),
+      unavailable: !!row.querySelector("span.error"),
+      expired: !!(dbtn && !teleporting && (dbtn.disabled || dbtn.classList.contains("disabled") || dbtn.classList.contains("expire"))),
     };
-    fire();
+  };
+  const scanItemStates = () => {
+    stateScanTimer = 0;
+    const rows = document.querySelectorAll(".row[data-id]");
+    const changed = [];
+    rows.forEach((row) => {
+      const st = readRowState(row);
+      if (!st) return;
+      const key = (st.gone ? 1 : 0) + "" + (st.demand ? 1 : 0) + (st.unavailable ? 1 : 0) + (st.expired ? 1 : 0);
+      if (lastRowState.get(st.id) !== key) {
+        lastRowState.set(st.id, key);
+        changed.push(st);
+      }
+    });
+    if (changed.length) {
+      try { chrome.runtime.sendMessage({ type: "ptb-item-state", states: changed }); } catch (_e) {}
+    }
+  };
+  const scheduleStateScan = () => {
+    if (!stateScanTimer) stateScanTimer = setTimeout(scanItemStates, 250); // 변경 몰아서 처리
+  };
+  const observeItemStates = () => {
+    if (state.statesObserved) return;
+    const root = document.getElementById("trade") || document.body;
+    if (!root) { setTimeout(observeItemStates, 500); return; } // 앱 루트 아직이면 재시도
+    state.statesObserved = true;
+    try {
+      const obs = new MutationObserver(scheduleStateScan);
+      obs.observe(root, {
+        subtree: true,
+        childList: true, // warning/error span 추가·제거, 줄 추가
+        attributes: true,
+        attributeFilter: ["class", "style", "disabled"], // gone 클래스, btns display, 버튼 disabled
+      });
+      scheduleStateScan(); // 초기 1회
+    } catch (_e) {}
   };
 
   // 대시보드 중계: 워커 탭의 해당 매물 줄에서 사이트 공식 버튼을 대신 클릭(동작은 사이트가 수행).
@@ -701,12 +781,12 @@
           enterWorkerMode();
           try { sendResponse({ ok: true }); } catch (_e) {}
         } else if (msg && msg.cmd === "ptb-pause") {
-          // 라이브검색만 중지(탭은 유지) — 사이트 공식 버튼 토글.
-          try { window.postMessage({ source: "ptb", cmd: "worker-stop" }, location.origin); } catch (_e) {}
+          // 라이브검색만 중지(탭은 유지) — 늦게 오던 worker-start 도 차단.
+          stopLive();
           try { sendResponse({ ok: true }); } catch (_e) {}
         } else if (msg && msg.cmd === "ptb-resume") {
-          // 라이브검색 다시 시작.
-          try { window.postMessage({ source: "ptb", cmd: "worker-start" }, location.origin); } catch (_e) {}
+          // 라이브검색 다시 시작(워커 모드 미진입 탭도 여기서 진입).
+          enterWorkerMode();
           try { sendResponse({ ok: true }); } catch (_e) {}
         } else if (msg && msg.cmd === "ptb-act") {
           try { sendResponse(doRowAction(msg.act, msg.id)); } catch (_e) {}

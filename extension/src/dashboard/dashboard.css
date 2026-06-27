@@ -237,6 +237,44 @@ body {
   font-weight: 700;
 }
 
+/* 워커 DOM 에서 관찰한 매물 상태 배지/강조 */
+.card-state {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.card-state.st-demand {
+  color: #ffe066;
+  border: 1px solid rgba(255, 224, 102, 0.55);
+  background: rgba(255, 224, 102, 0.12);
+}
+.card-state.st-gone {
+  color: #ff9a9a;
+  border: 1px solid rgba(255, 120, 120, 0.6);
+  background: rgba(255, 90, 90, 0.14);
+}
+.card-state.st-expired {
+  color: #ffc078;
+  border: 1px solid rgba(255, 170, 90, 0.55);
+  background: rgba(255, 170, 90, 0.12);
+}
+
+.card.card-demand {
+  border-color: rgba(255, 224, 102, 0.5);
+}
+.card.card-expired {
+  border-color: rgba(255, 170, 90, 0.45);
+}
+.card.card-gone {
+  border-color: rgba(255, 100, 100, 0.5);
+  opacity: 0.6;
+}
+.card.card-gone .card-name {
+  text-decoration: line-through;
+}
+
 .card-meta {
   display: flex;
   flex-wrap: wrap;

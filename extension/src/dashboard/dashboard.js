@@ -17,8 +17,10 @@
     groupId: null, // 워커 탭들을 묶은 탭 그룹(접어서 탭바 정리)
     hits: [],
     seen: new Set(), // "북마크id:itemId"
+    itemStates: new Map(), // itemId -> { gone, demand, unavailable, expired }  (워커 DOM 관찰값)
     recvTotal: 0, // 받은 매물 누적(라이브 가시성)
     running: false,
+    gen: 0, // 시작 사이클 토큰 — 정지 시 증가시켜 진행 중이던 시작 루프/arm 을 무효화
   };
 
   const msg = (key, fallback) => {
@@ -174,6 +176,39 @@
     }
   }
 
+  // 워커 DOM 에서 관찰한 매물 상태를 카드에 반영(색/배지/은신처 버튼 비활성).
+  // gone·unavailable = 팔림/사용 불가(빨강), demand = 수요 많음(노랑), expired = 은신처 만료.
+  function applyCardState(card, st) {
+    st = st || {};
+    const blocked = !!(st.gone || st.unavailable);
+    card.classList.toggle("card-gone", blocked);
+    card.classList.toggle("card-demand", !!st.demand && !blocked);
+    card.classList.toggle("card-expired", !!st.expired && !blocked);
+
+    const label = blocked
+      ? msg("stateGone", "✗ 판매/사용 불가")
+      : st.expired
+      ? msg("stateExpired", "⏰ 만료 — 거래소로")
+      : st.demand
+      ? msg("stateDemand", "🔥 수요 많음")
+      : "";
+    let badge = card.querySelector(".card-state");
+    if (label) {
+      if (!badge) {
+        badge = el("span", "card-state");
+        (card.querySelector(".card-head") || card).appendChild(badge);
+      }
+      badge.textContent = label;
+      badge.className = "card-state " + (blocked ? "st-gone" : st.expired ? "st-expired" : "st-demand");
+    } else if (badge) {
+      badge.remove();
+    }
+
+    // 은신처로 이동(우리 중계 버튼): 팔림/만료면 눌러도 소용없으니 비활성.
+    const ho = card.querySelector(".card-go");
+    if (ho) ho.disabled = blocked || !!st.expired;
+  }
+
   // ── 매물 카드 ────────────────────────────────────────────────
   function buildCard(hit) {
     const card = el("article", "card");
@@ -264,6 +299,8 @@
     }
 
     card.appendChild(body);
+    card.dataset.itemId = hit.id || ""; // 워커가 보내는 상태(ptb-item-state)와 매칭
+    applyCardState(card, state.itemStates.get(hit.id));
     return card;
   }
 
@@ -287,10 +324,11 @@
 
   // ── 워커 탭 관리 ─────────────────────────────────────────────
   // 탭이 뜬 뒤 content.js 가 준비되면 ptb-be-worker 를 받아 응답한다. 준비 전엔 실패 → 재시도.
-  function armWorker(tabId, key) {
+  function armWorker(tabId, key, gen) {
     let tries = 0;
     const trySend = () => {
       tries += 1;
+      if (state.gen !== gen) return; // 정지/재시작됨 → 이 탭을 워커로 만들지 않음
       if (!state.workers.has(key)) return;
       try {
         chrome.tabs.sendMessage(tabId, { cmd: "ptb-be-worker" }, (resp) => {
@@ -325,9 +363,11 @@
     // 시작할 때마다 매물 목록을 비우고 새로 모은다.
     state.hits = [];
     state.seen.clear();
+    state.itemStates.clear();
     state.recvTotal = 0;
 
     state.running = true;
+    const gen = ++state.gen; // 이 시작 사이클 식별(정지 누르면 state.gen 이 바뀌어 아래 루프가 중단됨)
     ensureAudio(); // 시작 클릭(유저 제스처) 때 오디오 컨텍스트 활성화
     $("startBtn").hidden = true;
     $("stopBtn").hidden = false;
@@ -348,6 +388,7 @@
     // 이미 열린 탭(일시정지 상태)은 라이브만 다시 켜고(재사용), 새 선택은 백그라운드 탭을 새로 연다.
     // (열린 워커 탭들은 아래에서 접힌 그룹으로 묶어 탭바를 정리한다.)
     for (const b of picks) {
+      if (state.gen !== gen) return; // 정지됨 → 더 이상 열지 않음
       let url = "";
       try {
         url = PTB.buildTradeUrl(b);
@@ -363,6 +404,7 @@
         try { chrome.tabs.sendMessage(ex.tabId, { cmd: "ptb-resume" }); } catch (_e) {}
         renderStatus();
         await sleep(500); // 재개 동시 폭주 방지
+        if (state.gen !== gen) return; // 정지됨
       } else {
         let tab = null;
         try {
@@ -370,14 +412,21 @@
         } catch (_e) {
           tab = null;
         }
+        if (state.gen !== gen) { // 탭 만드는 사이 정지됨 → 방금 연 탭 정리하고 종료
+          if (tab) { try { chrome.tabs.remove(tab.id); } catch (_e) {} }
+          return;
+        }
         if (!tab) continue;
         try { chrome.tabs.update(tab.id, { muted: true }); } catch (_e) {} // 사이트 알림음 음소거(대시보드 띵동만)
         state.workers.set(b.id, { tabId: tab.id, title: b.title || b.searchId, status: "loading" });
-        armWorker(tab.id, b.id);
+        armWorker(tab.id, b.id, gen);
         renderStatus();
         await sleep(900); // 탭/라이브 동시 개시 폭주 방지(레이트리밋 배려)
+        if (state.gen !== gen) return; // 정지됨
       }
     }
+
+    if (state.gen !== gen) return; // 그룹화 직전 최종 확인
 
     // 워커 탭들을 한 그룹으로 묶고 접어 탭바를 정리(개별 탭 N개 대신 그룹 칩 하나).
     try {
@@ -412,6 +461,7 @@
   // 정지(일시정지): 각 워커 탭의 라이브검색만 끈다(공식 버튼 토글로 중지). 탭은 그대로 둬서
   // 화면에 보이는 매물은 계속 은신처 이동 가능. 완전히 닫으려면 대시보드 탭을 닫으면 됨.
   function pause() {
+    state.gen += 1; // 진행 중이던 start() 루프·armWorker 를 즉시 무효화(되살아남 방지)
     for (const [, w] of state.workers) {
       if (w.tabId) {
         try { chrome.tabs.sendMessage(w.tabId, { cmd: "ptb-pause" }); } catch (_e) {}
@@ -430,6 +480,16 @@
   // ── 수신: 워커가 보낸 매물 집계 ───────────────────────────────
   chrome.runtime.onMessage.addListener((m, sender) => {
     if (!m) return;
+
+    // 매물 상태 변경(워커 DOM 관찰) → 해당 카드만 갱신. 매물 id 로 직접 매칭하므로 워커 식별 불필요.
+    if (m.type === "ptb-item-state" && Array.isArray(m.states)) {
+      for (const st of m.states) {
+        if (!st || !st.id) continue;
+        state.itemStates.set(st.id, st);
+        document.querySelectorAll('#hits [data-item-id="' + st.id + '"]').forEach((c) => applyCardState(c, st));
+      }
+      return;
+    }
 
     // 보낸 탭으로 어느 워커(북마크)인지 식별.
     let bookmarkId = null;

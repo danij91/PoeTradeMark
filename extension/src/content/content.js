@@ -382,6 +382,19 @@
     if (Array.isArray(bookmark.filters) && bookmark.filters.length) {
       const fwrap = sbEl("div", "ptb-sb-filters");
       for (const mod of bookmark.filters) fwrap.appendChild(sbEl("span", "ptb-sb-chip", mod));
+      if (bookmark.filters.length >= 3) {
+        // 필터 3개 이상이면 접어두고 토글로 펼침
+        fwrap.classList.add("ptb-collapsed");
+        const fToggle = sbEl("button", "ptb-sb-fbtn", `필터 ${bookmark.filters.length}개 ▾`);
+        fToggle.type = "button";
+        fToggle.addEventListener("click", () => {
+          const collapsed = fwrap.classList.toggle("ptb-collapsed");
+          fToggle.textContent = collapsed
+            ? `필터 ${bookmark.filters.length}개 ▾`
+            : "접기 ▴";
+        });
+        main.appendChild(fToggle);
+      }
       main.appendChild(fwrap);
     }
 

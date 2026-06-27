@@ -257,3 +257,29 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   border-color: rgba(220, 150, 150, 0.5);
   color: #f0b3b3;
 }
+
+.ptb-sb-fbtn {
+  margin-top: 6px;
+  padding: 2px 9px;
+  border: 1px dashed rgba(255, 214, 128, 0.45);
+  border-radius: 5px;
+  background: transparent;
+  color: #d8bd84;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ptb-sb-fbtn:hover {
+  background: rgba(255, 214, 128, 0.08);
+}
+
+.ptb-sb-filters.ptb-collapsed {
+  display: none;
+}
+
+/* 사이드바 열리면 거래소를 가리지 않고 본문 폭을 줄임(스퀴즈) */
+body.ptb-has-sidebar {
+  margin-right: 340px !important;
+  transition: margin-right 0.18s ease;
+}

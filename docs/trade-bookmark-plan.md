@@ -75,6 +75,8 @@ PTB.storage.remove(id) → Promise<void>
 
 ## 6. 파일 트리
 
+> ⚠️ **익스텐션 루트 = `extension/`** (repo 루트엔 `_ops` 등이 있어 Chrome이 `_` 예약 디렉터리로 로드를 거부 → unpacked는 `<repo>/extension` 에서 로드). 아래 경로는 그 `extension/` 기준 상대(manifest 내부 경로도 동일).
+
 ```
 manifest.json
 src/common/url.js          # 카드 pt-1-foundation

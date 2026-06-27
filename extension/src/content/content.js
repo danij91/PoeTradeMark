@@ -130,22 +130,22 @@
         const titleEl = f.querySelector(".filter-title");
         const name = cleanLabel(titleEl);
         if (!name || name.charAt(0) === "+") continue;
-        if (titleEl.querySelector(".mutate-type")) {
-          if (!out.includes(name)) out.push(name); // 스탯 모드 = 라벨 자체
-          continue;
-        }
         const vals = [];
         f.querySelectorAll(".multiselect.modified .multiselect__single").forEach((s) => {
           const v = cleanText(s.textContent);
           if (v) vals.push(v);
         });
+        // 스탯 모드의 오른쪽 min/max 등 값 박스(.modified)까지 캡처
         f.querySelectorAll("input.modified").forEach((i) => {
           if (i.value) vals.push((i.placeholder ? i.placeholder + " " : "") + i.value);
         });
-        if (vals.length) {
-          const label = name + ": " + vals.join(", ");
-          if (!out.includes(label)) out.push(label);
+        let label = "";
+        if (titleEl.querySelector(".mutate-type")) {
+          label = vals.length ? name + ": " + vals.join(", ") : name; // 스탯 모드 = 모드 텍스트(+값)
+        } else if (vals.length) {
+          label = name + ": " + vals.join(", ");
         }
+        if (label && !out.includes(label)) out.push(label);
       }
       return out;
     } catch (_error) {

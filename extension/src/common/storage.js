@@ -20,11 +20,24 @@ PTB.storage = {
   // id/createdAt 채워 앞에 추가, 만든 Bookmark 반환
   async add(partial) {
     const arr = await this._read();
+    // 같은 제목이 이미 있으면 뒤에 (2),(3)… 붙여 유일하게
+    let title = partial.title;
+    const base = (partial.title || "").trim();
+    if (base) {
+      const taken = new Set(arr.map((b) => b.title));
+      title = base;
+      let n = 2;
+      while (taken.has(title)) {
+        title = `${base} (${n})`;
+        n += 1;
+      }
+    }
     const bookmark = {
       iconUrl: null,
       query: null,
       sort: null,
       ...partial,
+      title,
       realm: partial.realm || PTB.hostToRealm(partial.host),
       id: crypto.randomUUID(),
       createdAt: Date.now(),

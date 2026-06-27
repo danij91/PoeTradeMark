@@ -144,6 +144,7 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
 .ptb-sb-list {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
 }
 

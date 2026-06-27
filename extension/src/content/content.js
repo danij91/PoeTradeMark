@@ -461,6 +461,24 @@
     header.appendChild(closeBtn);
     sidebar.appendChild(header);
     sidebar.appendChild(sbEl("div", "ptb-sb-list"));
+    // 사이드바 위에서 휠을 굴리면 목록만 스크롤(거래소 본문으로 흘려보내지 않음)
+    sidebar.addEventListener(
+      "wheel",
+      (event) => {
+        try {
+          const list = sidebar.querySelector(".ptb-sb-list");
+          if (list) {
+            const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+            list.scrollTop += amount;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+        } catch (_error) {
+          // ignore
+        }
+      },
+      { passive: false }
+    );
     document.body.appendChild(sidebar);
     state.sidebar = sidebar;
     return sidebar;

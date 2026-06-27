@@ -198,8 +198,8 @@
     }
 
     const info = parseCurrentUrl();
-    const addBookmark = globalThis.PTB?.storage?.add;
-    if (!info || typeof addBookmark !== "function") {
+    const storage = globalThis.PTB?.storage;
+    if (!info || typeof storage?.add !== "function") {
       reconcile();
       return;
     }
@@ -214,7 +214,7 @@
       }
 
       const { title, iconUrl } = captureResultDetails(info);
-      await addBookmark({
+      await storage.add({
         ...info,
         title,
         iconUrl,

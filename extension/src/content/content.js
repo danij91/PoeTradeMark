@@ -15,9 +15,6 @@
     feedbackTimer: 0,
   };
 
-  const fallbackTitle = (info) =>
-    `${info?.league || info?.realm || "Trade"} - ${info?.searchId || "search"}`;
-
   const message = (key, fallback) => {
     try {
       const getMessage = globalThis.chrome?.i18n?.getMessage;
@@ -79,14 +76,6 @@
     "img[src*='poecdn']",
   ];
 
-  const NAME_SELECTORS = [
-    ".item-popup__header-line",
-    ".itemName",
-    ".typeLine",
-    "[class*='header-line']",
-    "[class*='itemName']",
-  ];
-
   // 검색창에 입력/선택된 아이템명. 라이브 확인: `.search-left input`의 value 속성에 들어있음
   // (`.multiselect__single` 아님). 결과 첫 행 이름과 다를 수 있어(예: 결과 "삿된 ..." vs 검색 "비스 모티스 ...")
   // 사용자가 검색한 이름을 우선한다.
@@ -107,41 +96,76 @@
     }
   };
 
-  // 적용된 스탯 필터 모드 텍스트들. 라이브 확인: 스탯(brown) 패널의 각 `.filter .filter-title`이
-  // `<i class="mutate-type">비고정</i><span>소환수가 불경한 힘 보유</span>` 형태.
-  // 그룹 헤더("능력치 필터")는 mutate-type가 없어 제외. 모드 = filter-title에서 type 라벨/툴팁 뺀 것.
+  // 아이템 유형 필터값. 검색창에 이름이 없을 때 제목 폴백으로 사용. "모두"면 빈 문자열.
+  const readItemType = () => {
+    try {
+      const filters = document.querySelectorAll(".search-advanced .filter");
+      for (const f of filters) {
+        const t = f.querySelector(".filter-title");
+        if (!t || cleanText(t.textContent).indexOf("아이템 유형") !== 0) continue;
+        const single = f.querySelector(".multiselect.modified .multiselect__single");
+        const v = cleanText(single?.textContent);
+        if (v && v !== "모두") return v;
+      }
+    } catch (_error) {
+      // best-effort
+    }
+    return "";
+  };
+
+  // 적용된 필터들(스탯 + 그 외)을 사람이 읽는 문자열로. 라이브 확인:
+  //  - 스탯 모드(.mutate-type 보유) → 모드 텍스트 자체("소환수가 불경한 힘 보유").
+  //  - 그 외(방어구/홈/희귀도 등) → "필터명: 값"(.modified 인 select/input 만). 툴팁(.filter-tip) 제거.
   const captureFilters = () => {
     try {
-      const mods = [];
-      const filters = document.querySelectorAll(".search-advanced-pane.brown .filter");
+      const cleanLabel = (el) => {
+        if (!el) return "";
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll(".filter-tip, .mutate-type").forEach((n) => n.remove());
+        return cleanText(clone.textContent);
+      };
+      const out = [];
+      const filters = document.querySelectorAll(".search-advanced .filter");
       for (const f of filters) {
         const titleEl = f.querySelector(".filter-title");
-        if (!titleEl || !titleEl.querySelector(".mutate-type")) continue;
-        const clone = titleEl.cloneNode(true);
-        clone.querySelectorAll(".mutate-type, .filter-tip").forEach((n) => n.remove());
-        const text = cleanText(clone.textContent);
-        if (text && !mods.includes(text)) mods.push(text);
+        const name = cleanLabel(titleEl);
+        if (!name || name.charAt(0) === "+") continue;
+        if (titleEl.querySelector(".mutate-type")) {
+          if (!out.includes(name)) out.push(name); // 스탯 모드 = 라벨 자체
+          continue;
+        }
+        const vals = [];
+        f.querySelectorAll(".multiselect.modified .multiselect__single").forEach((s) => {
+          const v = cleanText(s.textContent);
+          if (v) vals.push(v);
+        });
+        f.querySelectorAll("input.modified").forEach((i) => {
+          if (i.value) vals.push((i.placeholder ? i.placeholder + " " : "") + i.value);
+        });
+        if (vals.length) {
+          const label = name + ": " + vals.join(", ");
+          if (!out.includes(label)) out.push(label);
+        }
       }
-      return mods;
+      return out;
     } catch (_error) {
       return [];
     }
   };
 
-  const captureResultDetails = (info) => {
+  const captureResultDetails = () => {
     try {
       const row = queryOne(document, RESULT_ROW_SELECTORS);
       const scope = row || document;
       const icon = queryOne(scope, ICON_SELECTORS);
       const iconUrl = icon?.getAttribute("src") || null;
-      const resultName = cleanText(queryOne(scope, NAME_SELECTORS)?.textContent);
-      // 제목 우선순위: 검색창 입력값 → 결과 첫 행 이름 → "리그 · id" 폴백
-      const title = readSearchTitle() || resultName || fallbackTitle(info);
+      // 제목: 검색창 입력값 → 아이템 유형(모두 제외) → "제목 없음"
+      const title =
+        readSearchTitle() || readItemType() || message("noTitle", "제목 없음");
       const filters = captureFilters();
-
       return { title, iconUrl, filters };
     } catch (_error) {
-      return { title: fallbackTitle(info), iconUrl: null, filters: [] };
+      return { title: message("noTitle", "제목 없음"), iconUrl: null, filters: [] };
     }
   };
 
@@ -205,7 +229,7 @@
         button.classList.add(BUSY_CLASS);
       }
 
-      const { title, iconUrl, filters } = captureResultDetails(info);
+      const { title, iconUrl, filters } = captureResultDetails();
       await storage.add({
         ...info,
         title,

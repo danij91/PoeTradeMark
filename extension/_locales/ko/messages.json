@@ -9,5 +9,6 @@
   "emptyList": { "message": "저장된 즐겨찾기가 없습니다" },
   "realmKR": { "message": "한국" },
   "realmGlobal": { "message": "글로벌" },
-  "saved": { "message": "저장됨" }
+  "saved": { "message": "저장됨" },
+  "noTitle": { "message": "제목 없음" }
 }

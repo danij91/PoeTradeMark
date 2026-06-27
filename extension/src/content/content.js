@@ -421,9 +421,23 @@
         // ignore
       }
     });
+    const liveBtn = sbEl(
+      "button",
+      "ptb-sb-btn ptb-sb-live" + (isLive(bookmark.searchId) ? " ptb-on" : ""),
+      isLive(bookmark.searchId) ? "📡 ON" : "📡 라이브"
+    );
+    liveBtn.type = "button";
+    liveBtn.addEventListener("click", () => {
+      const ok = setBookmarkLive(bookmark, !isLive(bookmark.searchId));
+      if (!ok) {
+        liveBtn.textContent = `최대 ${LIVE_MAX}개`;
+        setTimeout(() => { if (state.sidebarOpen) renderSidebarList(); }, 1200);
+      }
+    });
     actions.appendChild(jumpBtn);
     actions.appendChild(renameBtn);
     actions.appendChild(deleteBtn);
+    actions.appendChild(liveBtn);
 
     row.appendChild(thumb);
     row.appendChild(main);
@@ -455,6 +469,10 @@
     const sidebar = sbEl("aside", "ptb-sidebar");
     const header = sbEl("div", "ptb-sb-header");
     header.appendChild(sbEl("span", "ptb-sb-h-title", message("popupTitle", "Bookmarks")));
+    const dashBtn = sbEl("button", "ptb-sb-dashbtn", message("openDash", "📡 라이브"));
+    dashBtn.type = "button";
+    dashBtn.addEventListener("click", () => setDashOpen(true));
+    header.appendChild(dashBtn);
     const closeBtn = sbEl("button", "ptb-sb-close", "✕");
     closeBtn.type = "button";
     closeBtn.addEventListener("click", () => setSidebarOpen(false));
@@ -529,9 +547,234 @@
     }
   };
 
+  // ── 라이브검색 대시보드 (풀스크린 · 다중 라이브 집계) ──────────────────
+  const LIVE_KEY = "ptbLive";
+  const LIVE_MAX = 5; // 동시 라이브 하드캡(실측 확인)
+  const live = { set: [], hits: [], dash: null, open: false, status: {} };
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_e) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        return true;
+      } catch (_e2) {
+        return false;
+      }
+    }
+  };
+
+  const sendLiveSet = () => {
+    try {
+      window.postMessage(
+        {
+          source: "ptb",
+          cmd: "live-set",
+          list: live.set.map((x) => ({ league: x.league, searchId: x.searchId })),
+        },
+        location.origin
+      );
+    } catch (_e) {
+      // ignore
+    }
+  };
+
+  const persistLive = () => {
+    try { chrome.storage.local.set({ [LIVE_KEY]: live.set }); } catch (_e) {}
+  };
+
+  const isLive = (searchId) => live.set.some((x) => x.searchId === searchId);
+  const sourceTitle = (searchId) => {
+    const x = live.set.find((s) => s.searchId === searchId);
+    return x ? x.title : searchId;
+  };
+
+  // true=처리됨, false=캡 초과로 거부
+  function setBookmarkLive(bookmark, on) {
+    if (on) {
+      if (isLive(bookmark.searchId)) return true;
+      if (live.set.length >= LIVE_MAX) return false;
+      live.set.push({
+        league: bookmark.league,
+        searchId: bookmark.searchId,
+        title: bookmark.title || bookmark.searchId,
+      });
+    } else {
+      live.set = live.set.filter((x) => x.searchId !== bookmark.searchId);
+    }
+    persistLive();
+    sendLiveSet();
+    if (state.sidebarOpen) renderSidebarList();
+    if (live.open) renderDash();
+    return true;
+  }
+
+  const frameColor = (ft) => {
+    if (ft === 1) return "#8aa9ff"; // 마법
+    if (ft === 2) return "#ffe873"; // 희귀
+    if (ft === 3) return "#cf8a3d"; // 고유
+    return "#ece3d0"; // 일반/기타
+  };
+
+  const buildHitCard = (hit) => {
+    const card = sbEl("article", "ptb-dash-card");
+
+    const thumb = sbEl("div", "ptb-dash-thumb");
+    if (hit.icon) {
+      const img = document.createElement("img");
+      img.src = hit.icon;
+      img.alt = "";
+      img.loading = "lazy";
+      thumb.appendChild(img);
+    }
+    card.appendChild(thumb);
+
+    const body = sbEl("div", "ptb-dash-body");
+    const head = sbEl("div", "ptb-dash-head");
+    const nm = sbEl(
+      "span",
+      "ptb-dash-name",
+      [hit.name, hit.typeLine].filter(Boolean).join(" ").trim() || "?"
+    );
+    nm.style.color = frameColor(hit.frameType);
+    head.appendChild(nm);
+    if (hit.corrupted) head.appendChild(sbEl("span", "ptb-dash-corrupt", "타락"));
+    body.appendChild(head);
+
+    const meta = sbEl("div", "ptb-dash-meta");
+    if (hit.price) meta.appendChild(sbEl("span", "ptb-dash-price", hit.price));
+    if (hit.ilvl) meta.appendChild(sbEl("span", "ptb-dash-il", "iLvl " + hit.ilvl));
+    meta.appendChild(sbEl("span", "ptb-dash-src", "◈ " + (hit.__source || "")));
+    if (hit.account) meta.appendChild(sbEl("span", "ptb-dash-acc", hit.account));
+    body.appendChild(meta);
+
+    if (Array.isArray(hit.mods) && hit.mods.length) {
+      const mods = sbEl("div", "ptb-dash-mods");
+      for (const m of hit.mods) mods.appendChild(sbEl("div", "ptb-dash-mod", m));
+      body.appendChild(mods);
+    }
+
+    if (hit.whisper) {
+      const w = sbEl("button", "ptb-dash-wbtn", message("copyWhisper", "귓속말 복사"));
+      w.type = "button";
+      w.addEventListener("click", async () => {
+        const ok = await copyText(hit.whisper);
+        const prev = w.textContent;
+        w.textContent = ok ? message("copied", "복사됨!") : "복사 실패";
+        setTimeout(() => {
+          try { w.textContent = prev; } catch (_e) {}
+        }, 1400);
+      });
+      body.appendChild(w);
+    }
+
+    card.appendChild(body);
+    return card;
+  };
+
+  const renderDash = () => {
+    const d = live.dash;
+    if (!d) return;
+    const chips = d.querySelector(".ptb-dash-searches");
+    if (chips) {
+      chips.textContent = "";
+      if (!live.set.length) {
+        chips.appendChild(
+          sbEl("span", "ptb-dash-empty2", message("liveNone", "라이브 켠 검색이 없습니다 — 목록에서 📡 로 켜세요"))
+        );
+      } else {
+        for (const s of live.set) {
+          const st = live.status[s.searchId];
+          const on = st === "auth" || st === "open";
+          chips.appendChild(sbEl("span", "ptb-dash-schip" + (on ? " ptb-on" : ""), s.title));
+        }
+      }
+    }
+    const list = d.querySelector(".ptb-dash-hits");
+    if (list) {
+      list.textContent = "";
+      if (!live.hits.length) {
+        list.appendChild(sbEl("p", "ptb-dash-waiting", message("liveWaiting", "새 매물 대기 중…")));
+      } else {
+        for (const h of live.hits) list.appendChild(buildHitCard(h));
+      }
+    }
+  };
+
+  function setDashOpen(open) {
+    live.open = open;
+    const d = ensureDash();
+    if (d) d.classList.toggle("ptb-open", open);
+    if (open) {
+      sendLiveSet();
+      renderDash();
+    }
+  }
+
+  function ensureDash() {
+    if (live.dash && document.body && document.body.contains(live.dash)) return live.dash;
+    if (!document.body) return null;
+    const d = sbEl("div", "ptb-dash");
+    const header = sbEl("div", "ptb-dash-header");
+    header.appendChild(sbEl("span", "ptb-dash-title", message("liveTitle", "라이브 대시보드")));
+    header.appendChild(sbEl("div", "ptb-dash-searches"));
+    const close = sbEl("button", "ptb-dash-close", "✕");
+    close.type = "button";
+    close.addEventListener("click", () => setDashOpen(false));
+    header.appendChild(close);
+    d.appendChild(header);
+    d.appendChild(sbEl("div", "ptb-dash-hits"));
+    document.body.appendChild(d);
+    live.dash = d;
+    return d;
+  }
+
+  const onLiveMessage = (d) => {
+    if (!d || d.source !== "ptb-live") return;
+    if (d.type === "hit" && Array.isArray(d.items)) {
+      const src = sourceTitle(d.searchId);
+      const stamped = d.items.map((it) => Object.assign({ __source: src }, it));
+      live.hits = stamped.concat(live.hits).slice(0, 200);
+      if (live.open) renderDash();
+    } else if (d.type && d.searchId) {
+      live.status[d.searchId] = d.type;
+      if (live.open) renderDash();
+    }
+  };
+
+  const initLive = () => {
+    try {
+      window.addEventListener("message", (e) => {
+        if (e.source !== window) return;
+        onLiveMessage(e.data);
+      });
+      chrome.storage.local
+        .get(LIVE_KEY)
+        .then((r) => {
+          const saved = (r && r[LIVE_KEY]) || [];
+          if (Array.isArray(saved) && saved.length) {
+            live.set = saved.slice(0, LIVE_MAX);
+            setTimeout(sendLiveSet, 800); // live.js 준비 대기 후 전송
+          }
+        })
+        .catch(() => {});
+    } catch (_error) {
+      // best-effort
+    }
+  };
+
   const start = () => {
     patchHistory();
     initSidebar();
+    initLive();
     globalThis.addEventListener?.("popstate", scheduleReconcile);
     globalThis.addEventListener?.("hashchange", scheduleReconcile);
 

@@ -15,6 +15,12 @@
       "js": ["src/common/url.js", "src/common/storage.js", "src/content/content.js"],
       "css": ["src/content/content.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.pathofexile.com/trade/*", "*://poe.kakaogames.com/trade/*"],
+      "js": ["src/content/live.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
     }
   ]
 }

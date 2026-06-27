@@ -13,6 +13,8 @@
     href: "",
     saving: false,
     feedbackTimer: 0,
+    sidebar: null,
+    sidebarOpen: false,
   };
 
   const message = (key, fallback) => {
@@ -332,8 +334,173 @@
     }
   };
 
+  // ── 우측 고정 즐겨찾기 사이드바 (페이지 내 도킹 패널) ──────────────
+  const SIDEBAR_TOGGLE_ID = "ptb-sidebar-toggle";
+  const SIDEBAR_OPEN_KEY = "ptbSidebarOpen";
+
+  const sbEl = (tag, className, text) => {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  };
+
+  const openTradeUrl = (bookmark) => {
+    try {
+      const buildTradeUrl = globalThis.PTB?.buildTradeUrl;
+      if (typeof buildTradeUrl === "function") {
+        globalThis.open(buildTradeUrl(bookmark), "_blank", "noopener");
+      }
+    } catch (_error) {
+      // ignore
+    }
+  };
+
+  const buildSidebarRow = (bookmark) => {
+    const row = sbEl("div", "ptb-sb-row");
+
+    const thumb = sbEl("div", "ptb-sb-thumb");
+    if (bookmark.iconUrl) {
+      const img = document.createElement("img");
+      img.src = bookmark.iconUrl;
+      img.alt = "";
+      img.loading = "lazy";
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = cleanText(bookmark.title || "?").slice(0, 1);
+    }
+
+    const main = sbEl("div", "ptb-sb-main");
+    main.appendChild(sbEl("div", "ptb-sb-title", bookmark.title || bookmark.searchId || ""));
+    main.appendChild(
+      sbEl(
+        "span",
+        "ptb-sb-realm",
+        bookmark.realm === "kr" ? message("realmKR", "KR") : message("realmGlobal", "Global")
+      )
+    );
+    if (Array.isArray(bookmark.filters) && bookmark.filters.length) {
+      const fwrap = sbEl("div", "ptb-sb-filters");
+      for (const mod of bookmark.filters) fwrap.appendChild(sbEl("span", "ptb-sb-chip", mod));
+      main.appendChild(fwrap);
+    }
+
+    const actions = sbEl("div", "ptb-sb-actions");
+    const jumpBtn = sbEl("button", "ptb-sb-btn ptb-sb-jump", message("jump", "Open"));
+    jumpBtn.type = "button";
+    jumpBtn.addEventListener("click", () => openTradeUrl(bookmark));
+    const renameBtn = sbEl("button", "ptb-sb-btn", message("rename", "Rename"));
+    renameBtn.type = "button";
+    renameBtn.addEventListener("click", async () => {
+      try {
+        const next = globalThis.prompt(message("rename", "Rename"), bookmark.title || "");
+        if (next && next.trim()) await PTB.storage.update(bookmark.id, { title: next.trim() });
+      } catch (_error) {
+        // ignore
+      }
+    });
+    const deleteBtn = sbEl("button", "ptb-sb-btn ptb-sb-del", message("delete", "Delete"));
+    deleteBtn.type = "button";
+    deleteBtn.addEventListener("click", async () => {
+      try {
+        await PTB.storage.remove(bookmark.id);
+      } catch (_error) {
+        // ignore
+      }
+    });
+    actions.appendChild(jumpBtn);
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(thumb);
+    row.appendChild(main);
+    row.appendChild(actions);
+    return row;
+  };
+
+  const renderSidebarList = async () => {
+    try {
+      const list = state.sidebar && state.sidebar.querySelector(".ptb-sb-list");
+      if (!list) return;
+      const items = await PTB.storage.list();
+      list.textContent = "";
+      if (!items.length) {
+        list.appendChild(sbEl("p", "ptb-sb-empty", message("emptyList", "No bookmarks yet.")));
+        return;
+      }
+      for (const bookmark of items) list.appendChild(buildSidebarRow(bookmark));
+    } catch (_error) {
+      // best-effort
+    }
+  };
+
+  const ensureSidebar = () => {
+    if (state.sidebar && document.body && document.body.contains(state.sidebar)) {
+      return state.sidebar;
+    }
+    if (!document.body) return null;
+    const sidebar = sbEl("aside", "ptb-sidebar");
+    const header = sbEl("div", "ptb-sb-header");
+    header.appendChild(sbEl("span", "ptb-sb-h-title", message("popupTitle", "Bookmarks")));
+    const closeBtn = sbEl("button", "ptb-sb-close", "✕");
+    closeBtn.type = "button";
+    closeBtn.addEventListener("click", () => setSidebarOpen(false));
+    header.appendChild(closeBtn);
+    sidebar.appendChild(header);
+    sidebar.appendChild(sbEl("div", "ptb-sb-list"));
+    document.body.appendChild(sidebar);
+    state.sidebar = sidebar;
+    return sidebar;
+  };
+
+  function setSidebarOpen(open) {
+    state.sidebarOpen = open;
+    const sidebar = ensureSidebar();
+    if (sidebar) sidebar.classList.toggle("ptb-open", open);
+    try {
+      if (document.body) document.body.classList.toggle("ptb-has-sidebar", open);
+    } catch (_error) {
+      // ignore
+    }
+    const toggle = document.getElementById(SIDEBAR_TOGGLE_ID);
+    if (toggle) toggle.classList.toggle("ptb-active", open);
+    if (open) renderSidebarList();
+    try {
+      chrome.storage.local.set({ [SIDEBAR_OPEN_KEY]: open });
+    } catch (_error) {
+      // ignore
+    }
+  }
+
+  const ensureSidebarToggle = () => {
+    if (!document.body || document.getElementById(SIDEBAR_TOGGLE_ID)) return;
+    const toggle = sbEl("button", "ptb-sidebar-toggle", message("sidebarToggle", "★ 목록"));
+    toggle.id = SIDEBAR_TOGGLE_ID;
+    toggle.type = "button";
+    toggle.addEventListener("click", () => setSidebarOpen(!state.sidebarOpen));
+    document.body.appendChild(toggle);
+  };
+
+  const initSidebar = () => {
+    try {
+      ensureSidebarToggle();
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.bookmarks && state.sidebarOpen) renderSidebarList();
+      });
+      chrome.storage.local
+        .get(SIDEBAR_OPEN_KEY)
+        .then((result) => {
+          if (result && result[SIDEBAR_OPEN_KEY]) setSidebarOpen(true);
+        })
+        .catch(() => {});
+    } catch (_error) {
+      // best-effort
+    }
+  };
+
   const start = () => {
     patchHistory();
+    initSidebar();
     globalThis.addEventListener?.("popstate", scheduleReconcile);
     globalThis.addEventListener?.("hashchange", scheduleReconcile);
 

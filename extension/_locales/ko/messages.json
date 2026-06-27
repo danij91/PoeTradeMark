@@ -10,5 +10,6 @@
   "realmKR": { "message": "한국" },
   "realmGlobal": { "message": "글로벌" },
   "saved": { "message": "저장됨" },
-  "noTitle": { "message": "제목 없음" }
+  "noTitle": { "message": "제목 없음" },
+  "sidebarToggle": { "message": "★ 목록" }
 }

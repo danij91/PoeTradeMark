@@ -23,8 +23,8 @@ PTB.hostToRealm = function (host) {
 
 // realm → 표시용 국가 약자
 PTB.REALM_LABEL = {
-  kr: "KR", en: "UK", jp: "JP", es: "ES", fr: "FR", de: "DE", th: "TH", ru: "RU", br: "BR",
-  global: "UK", // 레거시(이전 버전 즐겨찾기)
+  kr: "KR", en: "EN", jp: "JP", es: "ES", fr: "FR", de: "DE", th: "TH", ru: "RU", br: "BR",
+  global: "EN", // 레거시(이전 버전 즐겨찾기)
 };
 PTB.realmLabel = function (realm) {
   return PTB.REALM_LABEL[realm] || String(realm || "").toUpperCase();

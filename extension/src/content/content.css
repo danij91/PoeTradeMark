@@ -157,13 +157,32 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
 
 .ptb-sb-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 9px;
   padding: 9px;
   margin-bottom: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
   background: #1d1810;
+}
+
+.ptb-sb-livechk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  color: #cffcdb;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ptb-sb-livechk input {
+  width: 16px;
+  height: 16px;
+  accent-color: #6fdc98;
+  cursor: pointer;
 }
 
 .ptb-sb-thumb {

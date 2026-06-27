@@ -46,6 +46,24 @@
       .replace(/\s+/g, " ")
       .trim();
 
+  const copyToClipboard = (text) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+        return;
+      }
+    } catch (_e) {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    } catch (_e) {}
+  };
+
   const queryOne = (root, selectors) => {
     for (const selector of selectors) {
       try {
@@ -407,26 +425,40 @@
         // ignore
       }
     });
-    const liveBtn = sbEl(
-      "button",
-      "ptb-sb-btn ptb-sb-live" + (isLive(bookmark.searchId) ? " ptb-on" : ""),
-      isLive(bookmark.searchId) ? message("liveOn", "📡 ON") : message("liveOff", "📡 라이브")
-    );
-    liveBtn.type = "button";
-    liveBtn.addEventListener("click", () => {
-      const ok = setBookmarkLive(bookmark, !isLive(bookmark.searchId));
-      if (!ok) {
-        liveBtn.textContent = message("maxN", "최대 {n}개").replace("{n}", LIVE_MAX);
-        setTimeout(() => { if (state.sidebarOpen) renderSidebarList(); }, 1200);
-      }
+    // 라이브 버튼 자리에 복사 버튼: 즐겨찾기 URL 을 클립보드에 복사(공유용).
+    const copyBtn = sbEl("button", "ptb-sb-btn", message("copyUrl", "📋 복사"));
+    copyBtn.type = "button";
+    copyBtn.addEventListener("click", () => {
+      try {
+        const buildTradeUrl = globalThis.PTB && PTB.buildTradeUrl;
+        const url = typeof buildTradeUrl === "function" ? buildTradeUrl(bookmark) : "";
+        if (!url) return;
+        copyToClipboard(url);
+        const prev = copyBtn.textContent;
+        copyBtn.textContent = message("copied", "✓ 복사됨");
+        setTimeout(() => {
+          try { copyBtn.textContent = prev; } catch (_e) {}
+        }, 1300);
+      } catch (_e) {}
     });
     actions.appendChild(jumpBtn);
     actions.appendChild(renameBtn);
     actions.appendChild(deleteBtn);
-    actions.appendChild(liveBtn);
+    actions.appendChild(copyBtn);
+
+    // 라이브 선택 체크박스(이름/태그 오른쪽 빈 공간). 키 = 북마크 고유 id(검색ID 충돌 방지).
+    const liveChk = sbEl("label", "ptb-sb-livechk");
+    liveChk.title = "LIVE";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = isLive(bookmark.id);
+    chk.addEventListener("change", () => setBookmarkLive(bookmark, chk.checked));
+    liveChk.appendChild(chk);
+    liveChk.appendChild(sbEl("span", "ptb-sb-livechk-txt", "LIVE"));
 
     row.appendChild(thumb);
     row.appendChild(main);
+    row.appendChild(liveChk);
     row.appendChild(actions);
     return row;
   };
@@ -570,23 +602,25 @@
     try { chrome.storage.local.set({ [LIVE_KEY]: live.set }); } catch (_e) {}
   };
 
-  const isLive = (searchId) => live.set.some((x) => x.searchId === searchId);
+  // 선택 키는 북마크 고유 id(검색ID는 리그/realm 달라도 같을 수 있어 충돌함).
+  const isLive = (id) => live.set.some((x) => x.id === id);
 
-  // true=처리됨, false=캡 초과로 거부
+  // 선택은 자유(제한 없음). 동시 5개 제한은 대시보드 '시작'에서 검사.
   function setBookmarkLive(bookmark, on) {
     if (on) {
-      if (isLive(bookmark.searchId)) return true;
-      if (live.set.length >= LIVE_MAX) return false;
-      live.set.push({
-        host: bookmark.host,
-        league: bookmark.league,
-        searchId: bookmark.searchId,
-        realm: bookmark.realm,
-        type: bookmark.type,
-        title: bookmark.title || bookmark.searchId,
-      });
+      if (!isLive(bookmark.id)) {
+        live.set.push({
+          id: bookmark.id,
+          host: bookmark.host,
+          league: bookmark.league,
+          searchId: bookmark.searchId,
+          realm: bookmark.realm,
+          type: bookmark.type,
+          title: bookmark.title || bookmark.searchId,
+        });
+      }
     } else {
-      live.set = live.set.filter((x) => x.searchId !== bookmark.searchId);
+      live.set = live.set.filter((x) => x.id !== bookmark.id);
     }
     persistLive();
     if (state.sidebarOpen) renderSidebarList();
@@ -684,7 +718,7 @@
         .get(LIVE_KEY)
         .then((r) => {
           const saved = (r && r[LIVE_KEY]) || [];
-          if (Array.isArray(saved)) live.set = saved.slice(0, LIVE_MAX);
+          if (Array.isArray(saved)) live.set = saved;
           if (state.sidebarOpen) renderSidebarList();
         })
         .catch(() => {});

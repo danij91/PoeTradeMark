@@ -11,12 +11,12 @@
 
   const state = {
     bookmarks: [],
-    selected: new Set(), // searchId
-    workers: new Map(), // searchId -> { tabId, title, status }  (실행 중에만)
-    searchInfo: new Map(), // searchId -> { url, title }  ('거래소로'용, 정지 후에도 유지)
+    selected: new Set(), // 북마크 id (검색ID는 리그/realm 달라도 충돌하므로 고유 id 사용)
+    workers: new Map(), // 북마크 id -> { tabId, title, status }  (실행 중에만)
+    searchInfo: new Map(), // 북마크 id -> { url, title }  ('거래소로'용, 정지 후에도 유지)
     groupId: null, // 워커 탭들을 묶은 탭 그룹(접어서 탭바 정리)
     hits: [],
-    seen: new Set(), // "searchId:itemId"
+    seen: new Set(), // "북마크id:itemId"
     recvTotal: 0, // 받은 매물 누적(라이브 가시성)
     running: false,
   };
@@ -81,9 +81,9 @@
   // ── 선택 영역 ────────────────────────────────────────────────
   function persistSelection() {
     const set = state.bookmarks
-      .filter((b) => state.selected.has(b.searchId))
-      .slice(0, MAX)
+      .filter((b) => state.selected.has(b.id))
       .map((b) => ({
+        id: b.id,
         host: b.host,
         league: b.league,
         searchId: b.searchId,
@@ -112,22 +112,16 @@
       return;
     }
     for (const b of state.bookmarks) {
-      const on = state.selected.has(b.searchId);
+      const on = state.selected.has(b.id);
       const lab = el("label", "pick" + (on ? " on" : ""));
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = on;
       cb.disabled = state.running;
       cb.addEventListener("change", () => {
-        if (cb.checked) {
-          if (state.selected.size >= MAX) {
-            cb.checked = false;
-            return;
-          }
-          state.selected.add(b.searchId);
-        } else {
-          state.selected.delete(b.searchId);
-        }
+        // 선택은 자유(제한 없음). 5개 제한은 '시작'에서 검사.
+        if (cb.checked) state.selected.add(b.id);
+        else state.selected.delete(b.id);
         lab.classList.toggle("on", cb.checked);
         persistSelection();
         updateCounts();
@@ -215,8 +209,8 @@
       body.appendChild(mods);
     }
 
-    const info = state.searchInfo.get(hit.__searchId);
-    const w = state.workers.get(hit.__searchId); // 탭이 열려있으면(정지 중에도) 은신처 가능
+    const info = state.searchInfo.get(hit.__bookmarkId);
+    const w = state.workers.get(hit.__bookmarkId); // 탭이 열려있으면(정지 중에도) 은신처 가능
     if (info) {
       const acts = el("div", "card-actions");
 
@@ -293,11 +287,11 @@
 
   // ── 워커 탭 관리 ─────────────────────────────────────────────
   // 탭이 뜬 뒤 content.js 가 준비되면 ptb-be-worker 를 받아 응답한다. 준비 전엔 실패 → 재시도.
-  function armWorker(tabId, searchId) {
+  function armWorker(tabId, key) {
     let tries = 0;
     const trySend = () => {
       tries += 1;
-      if (!state.workers.has(searchId)) return;
+      if (!state.workers.has(key)) return;
       try {
         chrome.tabs.sendMessage(tabId, { cmd: "ptb-be-worker" }, (resp) => {
           const err = chrome.runtime.lastError;
@@ -305,7 +299,7 @@
             if (tries < 25) setTimeout(trySend, 700);
             return;
           }
-          const w = state.workers.get(searchId);
+          const w = state.workers.get(key);
           if (w && w.status === "loading") {
             w.status = "arming"; // 워커 지정됨 — 라이브 실제 활성(active)되면 live 로.
             renderStatus();
@@ -320,8 +314,13 @@
 
   async function start() {
     if (state.running) return;
-    const picks = state.bookmarks.filter((b) => state.selected.has(b.searchId)).slice(0, MAX);
+    const picks = state.bookmarks.filter((b) => state.selected.has(b.id));
     if (!picks.length) return;
+    // 동시 5개 제한은 여기서(시작 시) 검사. 초과면 알림 후 시작 안 함.
+    if (picks.length > MAX) {
+      alert(msg("maxExceeded", "라이브는 최대 {n}개까지만 동시 실행할 수 있어요. 선택을 {n}개 이하로 줄여주세요.").replace(/\{n\}/g, MAX));
+      return;
+    }
 
     // 시작할 때마다 매물 목록을 비우고 새로 모은다.
     state.hits = [];
@@ -334,12 +333,12 @@
     $("stopBtn").hidden = false;
 
     // 선택 취소된(열려있던) 워커 탭은 닫는다.
-    const pickIds = new Set(picks.map((b) => b.searchId));
-    for (const [sid, w] of [...state.workers]) {
-      if (!pickIds.has(sid)) {
+    const pickIds = new Set(picks.map((b) => b.id));
+    for (const [bid, w] of [...state.workers]) {
+      if (!pickIds.has(bid)) {
         if (w.tabId) { try { chrome.tabs.remove(w.tabId); } catch (_e) {} }
-        state.workers.delete(sid);
-        state.searchInfo.delete(sid);
+        state.workers.delete(bid);
+        state.searchInfo.delete(bid);
       }
     }
     renderSelect(); // 체크박스 비활성화 반영
@@ -356,9 +355,9 @@
         url = "";
       }
       if (!url) continue;
-      state.searchInfo.set(b.searchId, { url: url, title: b.title || b.searchId });
+      state.searchInfo.set(b.id, { url: url, title: b.title || b.searchId });
 
-      const ex = state.workers.get(b.searchId);
+      const ex = state.workers.get(b.id);
       if (ex && ex.tabId) {
         ex.status = "loading";
         try { chrome.tabs.sendMessage(ex.tabId, { cmd: "ptb-resume" }); } catch (_e) {}
@@ -372,9 +371,9 @@
           tab = null;
         }
         if (!tab) continue;
-        try { chrome.tabs.update(tab.id, { muted: true }); } catch (_e) {} // 사이트 자체 라이브 알림음 음소거(대시보드 띵동만)
-        state.workers.set(b.searchId, { tabId: tab.id, title: b.title || b.searchId, status: "loading" });
-        armWorker(tab.id, b.searchId);
+        try { chrome.tabs.update(tab.id, { muted: true }); } catch (_e) {} // 사이트 알림음 음소거(대시보드 띵동만)
+        state.workers.set(b.id, { tabId: tab.id, title: b.title || b.searchId, status: "loading" });
+        armWorker(tab.id, b.id);
         renderStatus();
         await sleep(900); // 탭/라이브 동시 개시 폭주 방지(레이트리밋 배려)
       }
@@ -432,12 +431,12 @@
   chrome.runtime.onMessage.addListener((m, sender) => {
     if (!m) return;
 
-    // 보낸 탭으로 어느 검색인지 식별(여러 검색에 같은 매물이 와도 출처를 정확히).
-    let searchId = m.searchId;
+    // 보낸 탭으로 어느 워커(북마크)인지 식별.
+    let bookmarkId = null;
     let title = "";
-    for (const [sid, w] of state.workers) {
+    for (const [bid, w] of state.workers) {
       if (sender.tab && w.tabId === sender.tab.id) {
-        searchId = sid;
+        bookmarkId = bid;
         title = w.title;
         break;
       }
@@ -456,17 +455,17 @@
       return;
     }
 
-    if (m.type !== "ptb-items" || !Array.isArray(m.items) || !searchId) return;
+    if (m.type !== "ptb-items" || !Array.isArray(m.items) || !bookmarkId) return;
     if (!state.running) return; // 정지 후 들어오는 잔여 매물 무시
 
     let added = 0;
     for (const it of m.items) {
       if (it.id) {
-        const key = searchId + ":" + it.id;
+        const key = bookmarkId + ":" + it.id;
         if (state.seen.has(key)) continue;
         state.seen.add(key);
       }
-      state.hits.unshift(Object.assign({ __source: title, __searchId: searchId }, it));
+      state.hits.unshift(Object.assign({ __source: title, __bookmarkId: bookmarkId }, it));
       added += 1;
     }
     if (added) {
@@ -490,6 +489,27 @@
     }
   });
 
+  // 선택(ptbLive)이 어디서든(사이드바 등) 바뀌면 동기화. 실행 중 선택 취소된 워커는 닫고 그 매물 제거.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[LIVE_KEY]) return;
+    const saved = changes[LIVE_KEY].newValue || [];
+    const ids = new Set(saved.map((x) => x.id));
+    state.selected = new Set(state.bookmarks.filter((b) => ids.has(b.id)).map((b) => b.id));
+    renderSelect();
+    if (state.running) {
+      for (const [bid, w] of [...state.workers]) {
+        if (!state.selected.has(bid)) {
+          if (w.tabId) { try { chrome.tabs.remove(w.tabId); } catch (_e) {} }
+          state.workers.delete(bid);
+          state.searchInfo.delete(bid);
+        }
+      }
+      state.hits = state.hits.filter((h) => state.selected.has(h.__bookmarkId));
+      renderStatus();
+      renderHits();
+    }
+  });
+
   window.addEventListener("beforeunload", closeWorkers);
 
   $("startBtn").addEventListener("click", start);
@@ -504,6 +524,7 @@
     document.querySelectorAll("[data-i18n]").forEach(function (e) {
       e.textContent = msg(e.getAttribute("data-i18n"), e.textContent);
     });
+    document.title = msg("liveDashboard", "📡 라이브 대시보드");
   }
 
   function setupLangSelect() {
@@ -552,9 +573,9 @@
     } catch (_e) {
       saved = [];
     }
-    const savedIds = new Set((saved || []).map((x) => x.searchId));
+    const savedIds = new Set((saved || []).map((x) => x.id));
     state.selected = new Set(
-      state.bookmarks.filter((b) => savedIds.has(b.searchId)).map((b) => b.searchId)
+      state.bookmarks.filter((b) => savedIds.has(b.id)).map((b) => b.id)
     );
     renderSelect();
     renderStatus();

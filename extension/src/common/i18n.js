@@ -40,6 +40,9 @@ globalThis.PTB = globalThis.PTB || {};
       filterN: "Filters {n} ▾",
       collapse: "Collapse ▴",
       language: "Language",
+      copyUrl: "📋 Copy",
+      copied: "✓ Copied",
+      maxExceeded: "Live runs at most {n} searches at once — select {n} or fewer.",
       footNote:
         "Read-only — it only gathers the site's official live search results in one place; it never auto-whispers or buys. Starting opens a background tab per search (up to 5 at once). Stop turns off live search but keeps the tabs so you can still travel to hideout from listings. Close this dashboard tab to fully stop.",
     },
@@ -79,6 +82,9 @@ globalThis.PTB = globalThis.PTB || {};
       filterN: "필터 {n}개 ▾",
       collapse: "접기 ▴",
       language: "언어",
+      copyUrl: "📋 복사",
+      copied: "✓ 복사됨",
+      maxExceeded: "라이브는 최대 {n}개까지만 동시 실행할 수 있어요. 선택을 {n}개 이하로 줄여주세요.",
       footNote:
         "읽기전용 — 사이트 공식 라이브검색 결과를 한곳에 모아 볼 뿐, 자동 귓속말·구매는 하지 않습니다. 시작하면 검색마다 백그라운드 탭에서 라이브가 돌아갑니다(동시 최대 5개). 정지하면 라이브검색만 끄고 탭은 유지해 매물에서 은신처 이동을 계속 쓸 수 있습니다. 완전히 닫으려면 이 대시보드 탭을 닫으세요.",
     },

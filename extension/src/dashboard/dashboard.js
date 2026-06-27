@@ -23,10 +23,11 @@
 
   const msg = (key, fallback) => {
     try {
-      return chrome.i18n.getMessage(key) || fallback;
+      if (globalThis.PTB && PTB.i18n) return PTB.i18n.t(key, fallback);
     } catch (_e) {
-      return fallback;
+      // fall through
     }
+    return fallback;
   };
 
   const el = (tag, cls, text) => {
@@ -153,7 +154,13 @@
     bar.hidden = false;
     for (const [, w] of state.workers) {
       const mark =
-        w.status === "live" ? " ●" : w.status === "failed" ? " ✗ 활성실패" : w.status === "paused" ? " ⏸" : " …";
+        w.status === "live"
+          ? " ●"
+          : w.status === "failed"
+          ? " " + msg("activateFailed", "✗ 활성실패")
+          : w.status === "paused"
+          ? " ⏸"
+          : " …";
       const cls = "chip" + (w.status === "live" ? " chip-live" : w.status === "failed" ? " chip-failed" : "");
       bar.appendChild(el("span", cls, w.title + mark));
     }
@@ -164,10 +171,10 @@
     if (!r) return;
     if (state.running) {
       r.hidden = false;
-      r.textContent = "🟢 라이브 수신 " + state.recvTotal + "개";
+      r.textContent = msg("liveRecv", "🟢 라이브 수신 {n}개").replace("{n}", state.recvTotal);
     } else if (state.workers.size) {
       r.hidden = false;
-      r.textContent = "⏸ 일시정지 · " + state.recvTotal + "개";
+      r.textContent = msg("pausedInfo", "⏸ 일시정지 · {n}개").replace("{n}", state.recvTotal);
     } else {
       r.hidden = true;
     }
@@ -192,7 +199,7 @@
     const nm = el("span", "card-name", [hit.name, hit.typeLine].filter(Boolean).join(" ").trim() || "?");
     nm.style.color = frameColor(hit.frameType);
     head.appendChild(nm);
-    if (hit.corrupted) head.appendChild(el("span", "card-corrupt", "타락"));
+    if (hit.corrupted) head.appendChild(el("span", "card-corrupt", msg("corrupted", "타락")));
     body.appendChild(head);
 
     const meta = el("div", "card-meta");
@@ -220,7 +227,7 @@
         ho.addEventListener("click", () => {
           const prev = ho.textContent;
           ho.disabled = true;
-          ho.textContent = "보내는 중…";
+          ho.textContent = msg("sending", "보내는 중…");
           const done = (txt) => {
             ho.textContent = txt;
             setTimeout(() => {
@@ -231,13 +238,13 @@
           try {
             chrome.tabs.sendMessage(w.tabId, { cmd: "ptb-act", act: "hideout", id: hit.id }, (resp) => {
               const err = chrome.runtime.lastError;
-              if (!err && resp && resp.ok) done("✓ 보냄");
-              else if (resp && resp.reason === "no-row") done("매물 없음");
-              else if (resp && resp.reason === "no-button") done("연락 불가");
-              else done("실패");
+              if (!err && resp && resp.ok) done(msg("sent", "✓ 보냄"));
+              else if (resp && resp.reason === "no-row") done(msg("noListing", "매물 없음"));
+              else if (resp && resp.reason === "no-button") done(msg("cannotContact", "연락 불가"));
+              else done(msg("failed", "실패"));
             });
           } catch (_e) {
-            done("실패");
+            done(msg("failed", "실패"));
           }
         });
         acts.appendChild(ho);
@@ -385,7 +392,7 @@
           state.groupId = await chrome.tabs.group({ tabIds: ids }); // 그룹 id 만료 시 새로
         }
         try {
-          await chrome.tabGroups.update(state.groupId, { collapsed: true, title: "📡 라이브", color: "blue" });
+          await chrome.tabGroups.update(state.groupId, { collapsed: true, title: msg("openDash", "📡 라이브"), color: "blue" });
         } catch (_e) {}
       }
     } catch (_e) {}
@@ -493,7 +500,42 @@
     renderHits();
   });
 
+  function applyStaticI18n() {
+    document.querySelectorAll("[data-i18n]").forEach(function (e) {
+      e.textContent = msg(e.getAttribute("data-i18n"), e.textContent);
+    });
+  }
+
+  function setupLangSelect() {
+    var sel = $("lang-select");
+    if (!sel || !globalThis.PTB || !PTB.i18n) return;
+    PTB.i18n.LANGS.forEach(function (code) {
+      var opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = PTB.i18n.LANG_NAMES[code] || code;
+      if (code === PTB.i18n.getLang()) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener("change", function () {
+      PTB.i18n.setLang(sel.value);
+      applyStaticI18n();
+      renderSelect();
+      renderStatus();
+      renderHits();
+      updateRecv();
+    });
+  }
+
   async function init() {
+    if (globalThis.PTB && PTB.i18n) {
+      try {
+        await PTB.i18n.init();
+      } catch (_e) {
+        // ignore
+      }
+    }
+    applyStaticI18n();
+    setupLangSelect();
     try {
       state.bookmarks = await PTB.storage.list();
     } catch (_e) {

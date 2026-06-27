@@ -65,6 +65,19 @@ input {
   background: #285f9e;
 }
 
+.lang-select {
+  flex-shrink: 0;
+  max-width: 92px;
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  color: #27313f;
+  background: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .bookmark-list {
   display: flex;
   flex-direction: column;

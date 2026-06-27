@@ -20,11 +20,11 @@
 
   const message = (key, fallback) => {
     try {
-      const getMessage = globalThis.chrome?.i18n?.getMessage;
-      return (typeof getMessage === "function" && getMessage(key)) || fallback;
+      if (globalThis.PTB && PTB.i18n) return PTB.i18n.t(key, fallback);
     } catch (_error) {
-      return fallback;
+      // fall through
     }
+    return fallback;
   };
 
   const parseCurrentUrl = () => {
@@ -380,13 +380,12 @@
       if (bookmark.filters.length >= 3) {
         // 필터 3개 이상이면 접어두고 토글로 펼침
         fwrap.classList.add("ptb-collapsed");
-        const fToggle = sbEl("button", "ptb-sb-fbtn", `필터 ${bookmark.filters.length}개 ▾`);
+        const filterLabel = message("filterN", "필터 {n}개 ▾").replace("{n}", bookmark.filters.length);
+        const fToggle = sbEl("button", "ptb-sb-fbtn", filterLabel);
         fToggle.type = "button";
         fToggle.addEventListener("click", () => {
           const collapsed = fwrap.classList.toggle("ptb-collapsed");
-          fToggle.textContent = collapsed
-            ? `필터 ${bookmark.filters.length}개 ▾`
-            : "접기 ▴";
+          fToggle.textContent = collapsed ? filterLabel : message("collapse", "접기 ▴");
         });
         main.appendChild(fToggle);
       }
@@ -419,13 +418,13 @@
     const liveBtn = sbEl(
       "button",
       "ptb-sb-btn ptb-sb-live" + (isLive(bookmark.searchId) ? " ptb-on" : ""),
-      isLive(bookmark.searchId) ? "📡 ON" : "📡 라이브"
+      isLive(bookmark.searchId) ? message("liveOn", "📡 ON") : message("liveOff", "📡 라이브")
     );
     liveBtn.type = "button";
     liveBtn.addEventListener("click", () => {
       const ok = setBookmarkLive(bookmark, !isLive(bookmark.searchId));
       if (!ok) {
-        liveBtn.textContent = `최대 ${LIVE_MAX}개`;
+        liveBtn.textContent = message("maxN", "최대 {n}개").replace("{n}", LIVE_MAX);
         setTimeout(() => { if (state.sidebarOpen) renderSidebarList(); }, 1200);
       }
     });
@@ -689,6 +688,16 @@
   };
 
   const start = () => {
+    if (globalThis.PTB && PTB.i18n) {
+      try {
+        PTB.i18n.init().then(function () {
+          try {
+            reconcile();
+            if (state.sidebarOpen) renderSidebarList();
+          } catch (_e) {}
+        });
+      } catch (_e) {}
+    }
     patchHistory();
     initSidebar();
     initLive();

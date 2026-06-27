@@ -4,6 +4,7 @@
   const titleEl = document.getElementById("popup-title");
 
   function message(key, fallback) {
+    if (globalThis.PTB && PTB.i18n) return PTB.i18n.t(key, fallback);
     return globalThis.chrome?.i18n?.getMessage?.(key) || fallback || key;
   }
 
@@ -117,14 +118,47 @@
     return card;
   }
 
+  function applyStaticLabels() {
+    if (titleEl) titleEl.textContent = message("popupTitle", "PoE Trade Bookmark");
+    const dashBtn = document.getElementById("open-dash");
+    if (dashBtn) dashBtn.textContent = message("openDashboard", "📡 라이브 대시보드");
+  }
+
+  function setupLangSelect() {
+    const sel = document.getElementById("lang-select");
+    if (!sel || !globalThis.PTB || !PTB.i18n) return;
+    PTB.i18n.LANGS.forEach((code) => {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = PTB.i18n.LANG_NAMES[code] || code;
+      if (code === PTB.i18n.getLang()) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener("change", async () => {
+      PTB.i18n.setLang(sel.value);
+      applyStaticLabels();
+      try {
+        await refresh();
+      } catch (_e) {
+        // ignore
+      }
+    });
+  }
+
   async function init() {
-    if (titleEl) {
-      titleEl.textContent = message("popupTitle", "PoE Trade Bookmark");
+    if (globalThis.PTB && PTB.i18n) {
+      try {
+        await PTB.i18n.init();
+      } catch (_e) {
+        // ignore
+      }
     }
+
+    applyStaticLabels();
+    setupLangSelect();
 
     const dashBtn = document.getElementById("open-dash");
     if (dashBtn) {
-      dashBtn.textContent = message("openDashboard", "📡 라이브 대시보드");
       dashBtn.addEventListener("click", () => {
         try {
           chrome.tabs.create({ url: chrome.runtime.getURL("src/dashboard/dashboard.html") });

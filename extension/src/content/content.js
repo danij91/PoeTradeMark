@@ -87,18 +87,61 @@
     "[class*='itemName']",
   ];
 
+  // 검색창에 입력/선택된 아이템명. 라이브 확인: `.search-left input`의 value 속성에 들어있음
+  // (`.multiselect__single` 아님). 결과 첫 행 이름과 다를 수 있어(예: 결과 "삿된 ..." vs 검색 "비스 모티스 ...")
+  // 사용자가 검색한 이름을 우선한다.
+  const readSearchTitle = () => {
+    try {
+      const sl =
+        document.querySelector(".search-panel .search-left") ||
+        document.querySelector(".search-left");
+      if (!sl) return "";
+      const input =
+        sl.querySelector("input.multiselect__input") || sl.querySelector("input");
+      const fromInput = cleanText(input?.value);
+      if (fromInput) return fromInput;
+      const single = sl.querySelector(".multiselect__single");
+      return cleanText(single?.textContent);
+    } catch (_error) {
+      return "";
+    }
+  };
+
+  // 적용된 스탯 필터 모드 텍스트들. 라이브 확인: 스탯(brown) 패널의 각 `.filter .filter-title`이
+  // `<i class="mutate-type">비고정</i><span>소환수가 불경한 힘 보유</span>` 형태.
+  // 그룹 헤더("능력치 필터")는 mutate-type가 없어 제외. 모드 = filter-title에서 type 라벨/툴팁 뺀 것.
+  const captureFilters = () => {
+    try {
+      const mods = [];
+      const filters = document.querySelectorAll(".search-advanced-pane.brown .filter");
+      for (const f of filters) {
+        const titleEl = f.querySelector(".filter-title");
+        if (!titleEl || !titleEl.querySelector(".mutate-type")) continue;
+        const clone = titleEl.cloneNode(true);
+        clone.querySelectorAll(".mutate-type, .filter-tip").forEach((n) => n.remove());
+        const text = cleanText(clone.textContent);
+        if (text && !mods.includes(text)) mods.push(text);
+      }
+      return mods;
+    } catch (_error) {
+      return [];
+    }
+  };
+
   const captureResultDetails = (info) => {
     try {
       const row = queryOne(document, RESULT_ROW_SELECTORS);
       const scope = row || document;
       const icon = queryOne(scope, ICON_SELECTORS);
       const iconUrl = icon?.getAttribute("src") || null;
-      const nameEl = queryOne(scope, NAME_SELECTORS);
-      const title = cleanText(nameEl?.textContent) || fallbackTitle(info);
+      const resultName = cleanText(queryOne(scope, NAME_SELECTORS)?.textContent);
+      // 제목 우선순위: 검색창 입력값 → 결과 첫 행 이름 → "리그 · id" 폴백
+      const title = readSearchTitle() || resultName || fallbackTitle(info);
+      const filters = captureFilters();
 
-      return { title, iconUrl };
+      return { title, iconUrl, filters };
     } catch (_error) {
-      return { title: fallbackTitle(info), iconUrl: null };
+      return { title: fallbackTitle(info), iconUrl: null, filters: [] };
     }
   };
 
@@ -162,11 +205,12 @@
         button.classList.add(BUSY_CLASS);
       }
 
-      const { title, iconUrl } = captureResultDetails(info);
+      const { title, iconUrl, filters } = captureResultDetails(info);
       await storage.add({
         ...info,
         title,
         iconUrl,
+        filters,
         query: null,
         sort: null,
       });

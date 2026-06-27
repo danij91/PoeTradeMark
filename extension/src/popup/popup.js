@@ -83,6 +83,14 @@
     content.appendChild(heading);
     content.appendChild(meta);
 
+    if (Array.isArray(bookmark.filters) && bookmark.filters.length) {
+      const filtersWrap = makeElement("div", "bookmark-filters");
+      for (const mod of bookmark.filters) {
+        filtersWrap.appendChild(makeElement("span", "filter-chip", mod));
+      }
+      content.appendChild(filtersWrap);
+    }
+
     const actions = makeElement("div", "bookmark-actions");
     actions.appendChild(createButton(message("jump", "Open"), "button button-primary", () => {
       chrome.tabs.create({ url: PTB.buildTradeUrl(bookmark) });

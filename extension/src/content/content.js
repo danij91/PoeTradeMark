@@ -46,23 +46,6 @@
       .replace(/\s+/g, " ")
       .trim();
 
-  const visibleText = (element) => {
-    try {
-      if (!element) {
-        return "";
-      }
-
-      const rect = element.getBoundingClientRect();
-      if (!rect.width && !rect.height) {
-        return "";
-      }
-
-      return cleanText(element.textContent);
-    } catch (_error) {
-      return "";
-    }
-  };
-
   const queryOne = (root, selectors) => {
     for (const selector of selectors) {
       try {
@@ -78,74 +61,40 @@
     return null;
   };
 
-  const findResultRoot = (iconElement) => {
-    const resultSelectors = [
-      ".resultset .row",
-      ".search-results .row",
-      "[class*='result'] [class*='row']",
-      "[data-id]",
-      "li",
-    ];
+  // 거래소 결과 DOM(KR poe.kakaogames.com / 글로벌 동일 코드베이스)에 맞춘 셀렉터.
+  // 결과 1행 = `.resultset .row[data-id]`, 아이콘 = 그 안의 `.icon img`(…/gen/image/…),
+  // 제목 = `.item-popup__header-line`(첫 줄 = 아이템명). 사이트 로고를 피하려 행 내부로 한정.
+  const RESULT_ROW_SELECTORS = [
+    ".resultset .row[data-id]",
+    ".results .row[data-id]",
+    ".row[data-id]",
+    ".resultset .row",
+    ".search-results .row",
+  ];
 
-    const result = queryOne(document, resultSelectors);
-    if (result) {
-      return result;
-    }
+  const ICON_SELECTORS = [
+    ".icon img",
+    ".iconContainer img",
+    "img[src*='/gen/image/']",
+    "img[src*='poecdn']",
+  ];
 
-    try {
-      let node = iconElement;
-      for (let depth = 0; node && node !== document.body && depth < 8; depth += 1) {
-        const text = visibleText(node);
-        if (text.length > 10) {
-          return node;
-        }
-        node = node.parentElement;
-      }
-    } catch (_error) {
-      return null;
-    }
-
-    return null;
-  };
-
-  const pickTitleFromRoot = (root) => {
-    if (!root) {
-      return "";
-    }
-
-    const nameSelectors = [
-      ".itemName",
-      ".item-name",
-      "[class*='itemName']",
-      "[class*='item-name']",
-      ".name",
-      "[class*='name']",
-    ];
-
-    const namedElement = queryOne(root, nameSelectors);
-    const namedText = visibleText(namedElement);
-    if (namedText && namedText.length <= 120) {
-      return namedText;
-    }
-
-    try {
-      const lines = String(root.textContent || "")
-        .split(/\r?\n/)
-        .map(cleanText)
-        .filter((line) => line.length >= 3 && line.length <= 120);
-
-      return lines[0] || "";
-    } catch (_error) {
-      return "";
-    }
-  };
+  const NAME_SELECTORS = [
+    ".item-popup__header-line",
+    ".itemName",
+    ".typeLine",
+    "[class*='header-line']",
+    "[class*='itemName']",
+  ];
 
   const captureResultDetails = (info) => {
     try {
-      const icon = document.querySelector("img[src*='poecdn']");
+      const row = queryOne(document, RESULT_ROW_SELECTORS);
+      const scope = row || document;
+      const icon = queryOne(scope, ICON_SELECTORS);
       const iconUrl = icon?.getAttribute("src") || null;
-      const root = findResultRoot(icon);
-      const title = pickTitleFromRoot(root) || fallbackTitle(info);
+      const nameEl = queryOne(scope, NAME_SELECTORS);
+      const title = cleanText(nameEl?.textContent) || fallbackTitle(info);
 
       return { title, iconUrl };
     } catch (_error) {

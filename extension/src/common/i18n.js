@@ -6,7 +6,7 @@ globalThis.PTB = globalThis.PTB || {};
   var M = {
     en: {
       bookmarkButton: "Bookmark",
-      popupTitle: "Trade Bookmarks",
+      popupTitle: "PoE TradeMark",
       jump: "Go to search",
       rename: "Rename",
       delete: "Delete",

@@ -1,4 +1,4 @@
-# PoE Trade Bookmark
+# PoE TradeMark
 
 A Chrome extension that bookmarks official Path of Exile and Path of Exile 2 trade searches and converts listing prices with poe.ninja exchange rates.
 

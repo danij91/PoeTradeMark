@@ -233,7 +233,7 @@
   }
 
   function applyStaticLabels() {
-    if (titleEl) titleEl.textContent = message("popupTitle", "PoE Trade Bookmark");
+    if (titleEl) titleEl.textContent = message("popupTitle", "PoE TradeMark");
     const btn = document.querySelector(".lang-btn");
     if (btn) btn.title = message("language", "Language");
   }

@@ -15,16 +15,13 @@ PTB.storage = {
     await chrome.storage.local.set({ bookmarks: arr });
   },
 
-  // 최신순(createdAt 내림차순)
   async list(game) {
     const arr = await this._read();
-    const bookmarks = arr
-      .map((bookmark) => ({
-        ...bookmark,
-        game: PTB.bookmarkGame(bookmark),
-        league: PTB.decodePathPart ? PTB.decodePathPart(bookmark.league) : bookmark.league,
-      }))
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const bookmarks = arr.map((bookmark) => ({
+      ...bookmark,
+      game: PTB.bookmarkGame(bookmark),
+      league: PTB.decodePathPart ? PTB.decodePathPart(bookmark.league) : bookmark.league,
+    }));
     return game ? bookmarks.filter((bookmark) => bookmark.game === game) : bookmarks;
   },
 
@@ -51,6 +48,7 @@ PTB.storage = {
       ...partial,
       game,
       title,
+      itemName: String(partial.itemName || partial.title || "").trim(),
       realm: partial.realm || PTB.hostToRealm(partial.host),
       id: crypto.randomUUID(),
       createdAt: Date.now(),
@@ -71,5 +69,23 @@ PTB.storage = {
   async remove(id) {
     const arr = await this._read();
     await this._write(arr.filter((b) => b.id !== id));
+  },
+
+  async reorder(game, ids) {
+    const arr = await this._read();
+    const byId = {};
+    arr.forEach((b) => {
+      byId[b.id] = b;
+    });
+    const picked = [];
+    const seen = new Set();
+    (ids || []).forEach((id) => {
+      const b = byId[id];
+      if (!b || seen.has(id) || PTB.bookmarkGame(b) !== game) return;
+      picked.push(b);
+      seen.add(id);
+    });
+    const rest = arr.filter((b) => !seen.has(b.id));
+    await this._write(picked.concat(rest));
   },
 };

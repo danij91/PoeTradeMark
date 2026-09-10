@@ -469,14 +469,6 @@
       ["path", { d: "m21 21-4.34-4.34" }],
       ["circle", { cx: "11", cy: "11", r: "8" }],
     ],
-    bookOpen: [
-      ["path", { d: "M12 5v16" }],
-      ["path", { d: "M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" }],
-    ],
-    chartLine: [
-      ["path", { d: "M3 3v16a2 2 0 0 0 2 2h16" }],
-      ["path", { d: "m19 9-5 5-4-4-3 3" }],
-    ],
   };
 
   const closeLangMenus = () => {
@@ -523,20 +515,40 @@
     return wrap;
   };
 
-  const ninjaSlug = (league) => String(league || "").toLowerCase().replace(/\s+/g, "-");
+  const ninjaSlug = (league) => {
+    let s = String(league || "").trim().toLowerCase();
+    if (!s) return "";
+    if (s === "hardcore" || s === "standard") return s;
+    let hc = false;
+    if (/^(hardcore|hc)\s+/.test(s)) {
+      hc = true;
+      s = s.replace(/^(hardcore|hc)\s+/, "");
+    }
+    s = s.replace(/[^a-z0-9]+/g, "");
+    if (hc && s) s += "hc";
+    return s;
+  };
 
   const poedbLang = () => {
     const lang = PTB.i18n && PTB.i18n.getLang ? PTB.i18n.getLang() : "en";
-    const map = { en: "us", ko: "kr", ja: "jp", ru: "ru", de: "de", fr: "fr", es: "es", th: "th", pt: "pt" };
+    const map = { en: "us", ko: "kr", ja: "jp", ru: "ru", de: "de", fr: "fr", es: "sp", th: "th", pt: "pt" };
     return map[lang] || "us";
   };
 
-  const buildLinkBtn = (kind, icon, title) => {
+  const buildLinkBtn = (kind, title) => {
     const a = sbEl("a", "ptb-sb-extlink");
     a.target = "_blank";
     a.rel = "noopener";
     a.title = title;
-    a.appendChild(lucideEl(icon, 16));
+    const img = document.createElement("img");
+    img.className = "ptb-sb-exticon";
+    img.alt = title;
+    img.draggable = false;
+    const file = kind === "poedb" ? "src/assets/brand/poedb.ico" : "src/assets/brand/ninja.png";
+    try {
+      img.src = chrome.runtime.getURL(file);
+    } catch (_e) {}
+    a.appendChild(img);
     const sync = () => {
       const game = currentGame();
       const league = currentLeague();
@@ -799,8 +811,8 @@
     if (!document.body) return null;
     const sidebar = sbEl("aside", "ptb-sidebar");
     const header = sbEl("div", "ptb-sb-header");
-    header.appendChild(buildLinkBtn("poedb", "bookOpen", "PoEDB"));
-    header.appendChild(buildLinkBtn("ninja", "chartLine", "poe.ninja"));
+    header.appendChild(buildLinkBtn("poedb", "PoEDB"));
+    header.appendChild(buildLinkBtn("ninja", "poe.ninja"));
     const searchBtn = sbEl("button", "ptb-sb-searchbtn");
     searchBtn.type = "button";
     setIconBtn(searchBtn, "search", message("searchBookmarks", "Search"));
@@ -1004,11 +1016,11 @@
     bmDragId: "",
   };
 
-  const isKorean = () => {
+  const uiLang = () => {
     try {
-      return PTB.i18n && PTB.i18n.getLang() === "ko";
+      return (PTB.i18n && PTB.i18n.getLang && PTB.i18n.getLang()) || "en";
     } catch (_e) {
-      return false;
+      return "en";
     }
   };
 
@@ -1020,9 +1032,18 @@
     return (PTB.currencyMeta && PTB.currencyMeta[id]) || null;
   };
 
+  const currencyNameMap = (id) => {
+    const game = fx.game || currentGame();
+    const pack = PTB.currencyNames && PTB.currencyNames[game === "poe1" ? "poe1" : "poe2"];
+    return (pack && pack[id]) || null;
+  };
+
   const currencyLabel = (id) => {
+    const lang = uiLang();
+    const names = currencyNameMap(id);
+    if (lang && lang !== "en" && names && names[lang]) return names[lang];
     const meta = currencyMeta(id);
-    if (isKorean() && meta && meta.ko) return meta.ko;
+    if (lang === "ko" && meta && meta.ko) return meta.ko;
     return PTB.rates ? PTB.rates.itemName(fx.bundle, id) : id;
   };
 
@@ -1509,9 +1530,11 @@
       if (!it || !it.id) continue;
       if (q) {
         const en = String(it.name || "").toLowerCase();
-        const ko = String((currencyMeta(it.id) && currencyMeta(it.id).ko) || "").toLowerCase();
         const id = String(it.id).toLowerCase();
-        if (en.indexOf(q) === -1 && ko.indexOf(q) === -1 && id.indexOf(q) === -1) continue;
+        const lang = uiLang();
+        const names = currencyNameMap(it.id) || {};
+        const local = String((lang !== "en" && names[lang]) || "").toLowerCase();
+        if (en.indexOf(q) === -1 && id.indexOf(q) === -1 && local.indexOf(q) === -1) continue;
       }
       hitsEl.appendChild(makeRateHit(it.id));
       n += 1;

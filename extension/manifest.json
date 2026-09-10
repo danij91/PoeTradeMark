@@ -15,14 +15,14 @@
   "content_scripts": [
     {
       "matches": ["*://*.pathofexile.com/trade/*", "*://*.pathofexile.com/trade2/*", "*://poe.kakaogames.com/trade/*", "*://poe.kakaogames.com/trade2/*"],
-      "js": ["src/common/i18n.js", "src/common/url.js", "src/common/storage.js", "src/common/rates.js", "src/assets/currency-meta.js", "src/assets/currency-meta-poe1.js", "src/content/content.js"],
+      "js": ["src/common/i18n.js", "src/common/url.js", "src/common/storage.js", "src/common/rates.js", "src/assets/currency-meta.js", "src/assets/currency-meta-poe1.js", "src/assets/currency-names.js", "src/content/content.js"],
       "css": ["src/content/content.css"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/assets/currency/*.png", "src/assets/currency/poe1/*.png"],
+      "resources": ["src/assets/currency/*.png", "src/assets/currency/poe1/*.png", "src/assets/brand/*"],
       "matches": ["*://*.pathofexile.com/*", "*://poe.kakaogames.com/*"]
     }
   ]

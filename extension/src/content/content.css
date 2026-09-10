@@ -139,6 +139,13 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   background: #241a0e;
 }
 
+.ptb-sb-exticon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  object-fit: contain;
+}
+
 .ptb-sb-searchbtn {
   display: inline-flex;
   align-items: center;

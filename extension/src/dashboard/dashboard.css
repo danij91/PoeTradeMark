@@ -106,6 +106,20 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.pick-game-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pick-game-title {
+  margin: 0;
+  color: #f7e1a6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .pick {
   display: inline-flex;
   align-items: center;
@@ -361,4 +375,147 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   color: #7c7464;
   font-size: 11px;
+}
+
+/* ── PoE 2: 차가운 철/은 ── */
+html.ptb-game-poe2,
+html.ptb-game-poe2 body {
+  background: #080a0d;
+  color: #dce4e6;
+}
+
+html.ptb-game-poe2 .hd {
+  border-bottom-color: rgba(168, 204, 196, 0.2);
+  background: #10141a;
+}
+
+html.ptb-game-poe2 .hd-title {
+  color: #e8eef0;
+}
+
+html.ptb-game-poe2 .hd-sub {
+  color: #8b9694;
+}
+
+html.ptb-game-poe2 .hd-sub b {
+  color: #c5ddd6;
+}
+
+html.ptb-game-poe2 .hd-recv {
+  border-color: rgba(126, 214, 186, 0.55);
+  background: #12352c;
+  color: #c8f8e8;
+}
+
+html.ptb-game-poe2 .btn {
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: #1a232c;
+  color: #e4ecea;
+}
+
+html.ptb-game-poe2 .btn:hover {
+  background: #243038;
+}
+
+html.ptb-game-poe2 .btn-start {
+  border-color: rgba(126, 214, 186, 0.65);
+  background: #12352c;
+  color: #c8f8e8;
+}
+
+html.ptb-game-poe2 .lang-select {
+  border-color: rgba(168, 204, 196, 0.28);
+  border-radius: 4px;
+  color: #dce4e6;
+  background: #1a232c;
+}
+
+html.ptb-game-poe2 .select-bar {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+html.ptb-game-poe2 .pick-game-title {
+  color: #c5ddd6;
+}
+
+html.ptb-game-poe2 .pick {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #12171c;
+}
+
+html.ptb-game-poe2 .pick.on {
+  border-color: rgba(126, 214, 186, 0.7);
+  background: #12352c;
+}
+
+html.ptb-game-poe2 .pick input {
+  accent-color: #6ed9b4;
+}
+
+html.ptb-game-poe2 .pick-name {
+  color: #eef3f4;
+}
+
+html.ptb-game-poe2 .muted {
+  color: #8b9694;
+}
+
+html.ptb-game-poe2 .chip {
+  background: #161c22;
+  color: #8b9694;
+}
+
+html.ptb-game-poe2 .chip-live {
+  border-color: rgba(126, 214, 186, 0.75);
+  color: #c8f8e8;
+}
+
+html.ptb-game-poe2 .waiting {
+  color: #8b9694;
+}
+
+html.ptb-game-poe2 .card {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: #12171c;
+}
+
+html.ptb-game-poe2 .card-thumb {
+  border-color: rgba(168, 204, 196, 0.22);
+  border-radius: 4px;
+  background: #0a0d11;
+}
+
+html.ptb-game-poe2 .card-price {
+  color: #c5ddd6;
+}
+
+html.ptb-game-poe2 .card-mods {
+  background: #0a0d11;
+}
+
+html.ptb-game-poe2 .card-go {
+  border-color: rgba(168, 204, 196, 0.5);
+  border-radius: 4px;
+  background: #1a3336;
+  color: #d4f0ec;
+}
+
+html.ptb-game-poe2 .card-go:hover {
+  background: #224246;
+}
+
+html.ptb-game-poe2 .card-jump {
+  border-radius: 4px;
+  background: #1a232c;
+  color: #c5d0ce;
+}
+
+html.ptb-game-poe2 .card-jump:hover {
+  background: #243038;
+}
+
+html.ptb-game-poe2 .foot {
+  color: #6e7876;
 }

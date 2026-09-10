@@ -30,17 +30,44 @@ PTB.realmLabel = function (realm) {
   return PTB.REALM_LABEL[realm] || String(realm || "").toUpperCase();
 };
 
-// https://{host}/trade/(search|exchange)/{league}/{searchId} → {host,realm,type,league,searchId} | null
+// URL 경로 조각 디코딩. 이미 디코딩된 값("Forbidden Rites")은 그대로.
+PTB.decodePathPart = function (value) {
+  const raw = String(value || "");
+  try {
+    return decodeURIComponent(raw.replace(/\+/g, " "));
+  } catch {
+    return raw;
+  }
+};
+
+// pathname 만 보고 게임 구분. 검색 ID 없는 /trade, /trade2 페이지도 인식.
+PTB.gameFromUrl = function (href) {
+  try {
+    const path = new URL(href).pathname || "";
+    if (path === "/trade2" || path.indexOf("/trade2/") === 0) return "poe2";
+    if (path === "/trade" || path.indexOf("/trade/") === 0) return "poe1";
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+// PoE 1: https://{host}/trade/(search|exchange)/{league}/{searchId}
+// PoE 2: https://{host}/trade2/(search|exchange)/poe2/{league}/{searchId}
+// → {host,realm,game,type,league,searchId} | null
 PTB.parseTradeUrl = function (href) {
   try {
     const url = new URL(href);
-    const m = url.pathname.match(/^\/trade\/(search|exchange)\/([^/]+)\/([^/]+)\/?$/);
+    const m =
+      url.pathname.match(/^\/trade\/(search|exchange)\/([^/]+)\/([^/]+)\/?$/) ||
+      url.pathname.match(/^\/trade2\/(search|exchange)\/poe2\/([^/]+)\/([^/]+)\/?$/);
     if (!m) return null;
     return {
       host: url.host,
       realm: PTB.hostToRealm(url.host),
+      game: PTB.gameFromUrl(href) || "poe1",
       type: m[1],
-      league: m[2],
+      league: PTB.decodePathPart(m[2]),
       searchId: m[3],
     };
   } catch {
@@ -48,6 +75,8 @@ PTB.parseTradeUrl = function (href) {
   }
 };
 
-PTB.buildTradeUrl = function ({ host, type, league, searchId }) {
-  return `https://${host}/trade/${type}/${league}/${searchId}`;
+PTB.buildTradeUrl = function ({ host, game, type, league, searchId }) {
+  const path = game === "poe2" ? `trade2/${type}/poe2` : `trade/${type}`;
+  const leagueSeg = encodeURIComponent(PTB.decodePathPart(league));
+  return `https://${host}/${path}/${leagueSeg}/${searchId}`;
 };

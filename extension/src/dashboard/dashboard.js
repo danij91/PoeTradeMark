@@ -92,7 +92,7 @@
 
   // ── 선택 영역 ────────────────────────────────────────────────
   function persistSelection() {
-    const set = state.bookmarks
+    const visible = state.bookmarks
       .filter((b) => state.selected.has(b.id))
       .map((b) => ({
         id: b.id,
@@ -100,11 +100,17 @@
         league: b.league,
         searchId: b.searchId,
         realm: b.realm,
+        game: b.game,
         type: b.type,
         title: b.title || b.searchId,
       }));
+    const visibleIds = new Set(state.bookmarks.map((b) => b.id));
     try {
-      chrome.storage.local.set({ [LIVE_KEY]: set });
+      chrome.storage.local.get(LIVE_KEY, (r) => {
+        const prev = (r && r[LIVE_KEY]) || [];
+        const others = prev.filter((x) => x && !visibleIds.has(x.id));
+        chrome.storage.local.set({ [LIVE_KEY]: others.concat(visible) });
+      });
     } catch (_e) {
       // ignore
     }
@@ -115,6 +121,15 @@
     if (c) c.textContent = `${state.selected.size}/${MAX}`;
   }
 
+  function pageGame() {
+    try {
+      const game = new URLSearchParams(location.search).get("game");
+      return game === "poe1" || game === "poe2" ? game : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
   function renderSelect() {
     const bar = $("selectBar");
     bar.textContent = "";
@@ -123,28 +138,40 @@
       updateCounts();
       return;
     }
-    for (const b of state.bookmarks) {
-      const on = state.selected.has(b.id);
-      const lab = el("label", "pick" + (on ? " on" : ""));
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = on;
-      cb.disabled = state.running;
-      cb.addEventListener("change", () => {
-        // 선택은 자유(제한 없음). 5개 제한은 '시작'에서 검사.
-        if (cb.checked) state.selected.add(b.id);
-        else state.selected.delete(b.id);
-        lab.classList.toggle("on", cb.checked);
-        persistSelection();
-        updateCounts();
-      });
-      lab.appendChild(cb);
-      lab.appendChild(el("span", "pick-name", b.title || b.searchId));
-      lab.appendChild(
-        el("span", "pick-realm", globalThis.PTB && PTB.realmLabel ? PTB.realmLabel(b.realm) : (b.realm || "").toUpperCase())
-      );
-      if (b.league) lab.appendChild(el("span", "pick-league", b.league));
-      bar.appendChild(lab);
+    const games = ["poe1", "poe2"].filter((game) =>
+      state.bookmarks.some((bookmark) => PTB.bookmarkGame(bookmark) === game)
+    );
+    const showHeaders = games.length > 1;
+    for (const game of games) {
+      const group = state.bookmarks.filter((bookmark) => PTB.bookmarkGame(bookmark) === game);
+      const section = showHeaders ? el("div", "pick-game-section") : bar;
+      if (showHeaders) {
+        section.appendChild(el("h2", "pick-game-title", game === "poe2" ? "Path of Exile 2" : "Path of Exile 1"));
+      }
+      for (const b of group) {
+        const on = state.selected.has(b.id);
+        const lab = el("label", "pick" + (on ? " on" : ""));
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = on;
+        cb.disabled = state.running;
+        cb.addEventListener("change", () => {
+          // 선택은 자유(제한 없음). 5개 제한은 '시작'에서 검사.
+          if (cb.checked) state.selected.add(b.id);
+          else state.selected.delete(b.id);
+          lab.classList.toggle("on", cb.checked);
+          persistSelection();
+          updateCounts();
+        });
+        lab.appendChild(cb);
+        lab.appendChild(el("span", "pick-name", b.title || b.searchId));
+        lab.appendChild(
+          el("span", "pick-realm", globalThis.PTB && PTB.realmLabel ? PTB.realmLabel(b.realm) : (b.realm || "").toUpperCase())
+        );
+        if (b.league) lab.appendChild(el("span", "pick-league", b.league));
+        section.appendChild(lab);
+      }
+      if (showHeaders) bar.appendChild(section);
     }
     updateCounts();
   }
@@ -631,8 +658,10 @@
     }
     applyStaticI18n();
     setupLangSelect();
+    document.documentElement.classList.toggle("ptb-game-poe2", pageGame() === "poe2");
+    document.body.classList.toggle("ptb-game-poe2", pageGame() === "poe2");
     try {
-      state.bookmarks = await PTB.storage.list();
+      state.bookmarks = await PTB.storage.list(pageGame());
     } catch (_e) {
       state.bookmarks = [];
     }

@@ -87,6 +87,19 @@ input {
   overflow-y: auto;
 }
 
+.bookmark-game-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bookmark-game-title {
+  margin: 2px 2px 0;
+  color: #5b6778;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .empty-state {
   margin: 0;
   padding: 22px 12px;
@@ -240,4 +253,116 @@ input {
 
 .button-danger:hover {
   background: #ffe7e7;
+}
+
+/* ── PoE 2: 차가운 철/은 다크 ── */
+html.ptb-game-poe2 {
+  color-scheme: dark;
+  color: #dce4e6;
+  background: #0c1014;
+}
+
+body.ptb-game-poe2 {
+  background: #0c1014;
+}
+
+body.ptb-game-poe2 .popup-header {
+  border-bottom-color: rgba(168, 204, 196, 0.16);
+  background: #10141a;
+}
+
+body.ptb-game-poe2 .popup-header h1 {
+  color: #e8eef0;
+}
+
+body.ptb-game-poe2 .dash-btn {
+  border-color: rgba(168, 204, 196, 0.5);
+  border-radius: 4px;
+  color: #d4f0ec;
+  background: #1a3336;
+}
+
+body.ptb-game-poe2 .dash-btn:hover {
+  background: #224246;
+}
+
+body.ptb-game-poe2 .lang-select {
+  border-color: rgba(168, 204, 196, 0.28);
+  border-radius: 4px;
+  color: #dce4e6;
+  background: #141a20;
+}
+
+body.ptb-game-poe2 .bookmark-game-title {
+  color: #8b9694;
+}
+
+body.ptb-game-poe2 .empty-state {
+  color: #8b9694;
+}
+
+body.ptb-game-poe2 .bookmark-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: #141a20;
+}
+
+body.ptb-game-poe2 .bookmark-icon {
+  border-color: rgba(168, 204, 196, 0.22);
+  border-radius: 5px;
+  color: #b7c8c4;
+  background: #0a0d11;
+}
+
+body.ptb-game-poe2 .bookmark-title {
+  color: #eef3f4;
+}
+
+body.ptb-game-poe2 .realm-badge {
+  border-color: rgba(143, 198, 214, 0.4);
+  color: #9fd4e4;
+  background: rgba(143, 198, 214, 0.1);
+}
+
+body.ptb-game-poe2 .league-badge {
+  border-color: rgba(176, 168, 214, 0.4);
+  color: #c2b8e6;
+  background: rgba(176, 168, 214, 0.1);
+}
+
+body.ptb-game-poe2 .filter-chip {
+  border-color: rgba(168, 204, 196, 0.28);
+  color: #c5ddd6;
+  background: rgba(168, 204, 196, 0.08);
+}
+
+body.ptb-game-poe2 .button {
+  border-color: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  color: #e4ecea;
+  background: #1a232c;
+}
+
+body.ptb-game-poe2 .button:hover {
+  background: #243038;
+}
+
+body.ptb-game-poe2 .button-primary {
+  border-color: rgba(168, 204, 196, 0.5);
+  color: #d4f0ec;
+  background: #1a3336;
+}
+
+body.ptb-game-poe2 .button-primary:hover {
+  background: #224246;
+}
+
+body.ptb-game-poe2 .button-danger {
+  border-color: rgba(220, 150, 150, 0.45);
+  color: #f0b3b3;
+  background: #2a1818;
+}
+
+body.ptb-game-poe2 .button-danger:hover {
+  background: #3a2020;
 }

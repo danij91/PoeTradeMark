@@ -312,18 +312,30 @@
     }
   };
 
+  function applyGameTheme() {
+    const game = PTB.gameFromUrl ? PTB.gameFromUrl(globalThis.location?.href || "") : null;
+    try {
+      if (document.body) document.body.classList.toggle("ptb-game-poe2", game === "poe2");
+    } catch (_e) {
+      // ignore
+    }
+  }
+
   function reconcile() {
     if (state.workerMode) return;
     try {
       const href = globalThis.location?.href || "";
       const info = parseCurrentUrl();
+      const hrefChanged = state.href !== href;
       state.href = href;
+      applyGameTheme();
 
       if (info) {
         ensureButton();
       } else {
         hideButton();
       }
+      if (hrefChanged && state.sidebarOpen) renderSidebarList();
     } catch (_error) {
       hideButton();
     }
@@ -469,7 +481,8 @@
     try {
       const list = state.sidebar && state.sidebar.querySelector(".ptb-sb-list");
       if (!list) return;
-      const items = await PTB.storage.list();
+      const game = PTB.gameFromUrl ? PTB.gameFromUrl(globalThis.location?.href || "") : null;
+      const items = await PTB.storage.list(game);
       list.textContent = "";
       if (!items.length) {
         list.appendChild(sbEl("p", "ptb-sb-empty", message("emptyList", "No bookmarks yet.")));
@@ -594,7 +607,9 @@
   const DASH_URL = "src/dashboard/dashboard.html";
   const openDashboard = () => {
     try {
-      window.open(chrome.runtime.getURL(DASH_URL), "_blank", "noopener");
+      const game = PTB.gameFromUrl ? PTB.gameFromUrl(globalThis.location?.href || "") : null;
+      const url = chrome.runtime.getURL(DASH_URL) + (game ? `?game=${game}` : "");
+      window.open(url, "_blank", "noopener");
     } catch (_e) {
       // ignore
     }
@@ -617,6 +632,7 @@
           league: bookmark.league,
           searchId: bookmark.searchId,
           realm: bookmark.realm,
+          game: bookmark.game,
           type: bookmark.type,
           title: bookmark.title || bookmark.searchId,
         });

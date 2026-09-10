@@ -72,8 +72,21 @@
     }
   }
 
+  function getActiveGame() {
+    return new Promise((resolve) => {
+      try {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const url = tabs && tabs[0] && tabs[0].url;
+          resolve(PTB.gameFromUrl ? PTB.gameFromUrl(url || "") : PTB.parseTradeUrl(url || "")?.game || null);
+        });
+      } catch (_e) {
+        resolve(null);
+      }
+    });
+  }
+
   async function refresh() {
-    const items = await PTB.storage.list();
+    const items = await PTB.storage.list(await getActiveGame());
 
     if (!items.length) {
       setEmptyState();
@@ -81,9 +94,7 @@
     }
 
     clearList();
-    for (const bookmark of items) {
-      listEl.appendChild(createBookmarkCard(bookmark));
-    }
+    for (const bookmark of items) listEl.appendChild(createBookmarkCard(bookmark));
   }
 
   function createBookmarkCard(bookmark) {
@@ -172,11 +183,21 @@
     applyStaticLabels();
     setupLangSelect();
 
+    try {
+      const game = await getActiveGame();
+      document.documentElement.classList.toggle("ptb-game-poe2", game === "poe2");
+      document.body.classList.toggle("ptb-game-poe2", game === "poe2");
+    } catch (_e) {
+      // ignore
+    }
+
     const dashBtn = document.getElementById("open-dash");
     if (dashBtn) {
-      dashBtn.addEventListener("click", () => {
+      dashBtn.addEventListener("click", async () => {
         try {
-          chrome.tabs.create({ url: chrome.runtime.getURL("src/dashboard/dashboard.html") });
+          const game = await getActiveGame();
+          const url = chrome.runtime.getURL("src/dashboard/dashboard.html") + (game ? `?game=${game}` : "");
+          chrome.tabs.create({ url });
         } catch (_error) {
           // ignore
         }

@@ -8,7 +8,7 @@
   if (window.__ptbLiveReady) return;
   window.__ptbLiveReady = true;
 
-  const FETCH_RE = /\/api\/trade\/fetch\//;
+  const FETCH_RE = /\/api\/trade2?\/fetch\//;
   let capturing = false; // /live 활성 확인 후에만 응답을 읽음(라이브 이전 일반 검색결과는 제외)
   let activated = false; // 사이트 라이브 중복 토글 방지
   let activateTries = 0;

@@ -89,6 +89,7 @@ PTB.rates = (function () {
         th: "th-TH",
         ru: "ru-RU",
         pt: "pt-BR",
+        tw: "zh-TW",
       };
       return (lang && map[lang]) || "en-US";
     } catch (_e) {

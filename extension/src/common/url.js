@@ -2,9 +2,10 @@
 globalThis.PTB = globalThis.PTB || {};
 
 // host → realm 코드. PoE 거래소는 언어만 다른 동일 사이트.
-// 한국만 poe.kakaogames.com, 나머지는 {lang}.pathofexile.com (영문은 www / 도메인 자체).
+// 한국만 poe.kakaogames.com, 대만은 pathofexile.tw, 나머지는 {lang}.pathofexile.com (영문은 www).
 PTB.HOST_REALMS = [
   { re: /kakaogames/, realm: "kr" },
+  { re: /pathofexile\.tw$/, realm: "tw" },
   { re: /^jp\./, realm: "jp" },
   { re: /^es\./, realm: "es" },
   { re: /^fr\./, realm: "fr" },
@@ -23,7 +24,7 @@ PTB.hostToRealm = function (host) {
 
 // realm → 표시용 국가 약자
 PTB.REALM_LABEL = {
-  kr: "KR", en: "EN", jp: "JP", es: "ES", fr: "FR", de: "DE", th: "TH", ru: "RU", br: "BR",
+  kr: "KR", en: "EN", jp: "JP", es: "ES", fr: "FR", de: "DE", th: "TH", ru: "RU", br: "BR", tw: "TW",
   global: "EN", // 레거시(이전 버전 즐겨찾기)
 };
 PTB.realmLabel = function (realm) {

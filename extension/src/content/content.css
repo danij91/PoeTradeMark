@@ -146,6 +146,14 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   object-fit: contain;
 }
 
+.ptb-sb-exttext {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  user-select: none;
+}
+
 .ptb-sb-searchbtn {
   display: inline-flex;
   align-items: center;
@@ -234,7 +242,8 @@ body.ptb-has-sidebar #ptb-bookmark-button.ptb-bookmark-button {
   flex-direction: column;
   min-width: 148px;
   max-height: 240px;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border: 1px solid rgba(255, 214, 128, 0.35);
   border-radius: 8px;
@@ -670,6 +679,7 @@ a.ptb-sb-btn {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 38px;
   max-height: 340px;
   padding: 8px 34px 10px 10px;
   overflow: auto;

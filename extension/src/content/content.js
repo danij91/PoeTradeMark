@@ -7,6 +7,7 @@
   const BUSY_CLASS = "ptb-is-busy";
   const URL_POLL_MS = 1000;
   const FEEDBACK_MS = 1400;
+  const GITHUB_URL = "https://github.com/danij91/PoeTradeMark";
 
   const state = {
     button: null,
@@ -469,6 +470,10 @@
       ["path", { d: "m21 21-4.34-4.34" }],
       ["circle", { cx: "11", cy: "11", r: "8" }],
     ],
+    github: [
+      ["path", { d: "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" }],
+      ["path", { d: "M9 18c-4.51 2-5-2-7-2" }],
+    ],
   };
 
   const closeLangMenus = () => {
@@ -531,7 +536,7 @@
 
   const poedbLang = () => {
     const lang = PTB.i18n && PTB.i18n.getLang ? PTB.i18n.getLang() : "en";
-    const map = { en: "us", ko: "kr", ja: "jp", ru: "ru", de: "de", fr: "fr", es: "sp", th: "th", pt: "pt" };
+    const map = { en: "us", ko: "kr", ja: "jp", ru: "ru", de: "de", fr: "fr", es: "sp", th: "th", pt: "pt", tw: "tw" };
     return map[lang] || "us";
   };
 
@@ -540,15 +545,24 @@
     a.target = "_blank";
     a.rel = "noopener";
     a.title = title;
-    const img = document.createElement("img");
-    img.className = "ptb-sb-exticon";
-    img.alt = title;
-    img.draggable = false;
-    const file = kind === "poedb" ? "src/assets/brand/poedb.ico" : "src/assets/brand/ninja.png";
-    try {
-      img.src = chrome.runtime.getURL(file);
-    } catch (_e) {}
-    a.appendChild(img);
+    if (kind === "github") {
+      a.appendChild(lucideEl("github", 16));
+      if (GITHUB_URL) a.href = GITHUB_URL;
+      else a.addEventListener("click", (e) => e.preventDefault());
+      return a;
+    }
+    if (kind === "poedb") {
+      a.appendChild(sbEl("span", "ptb-sb-exttext", "DB"));
+    } else {
+      const img = document.createElement("img");
+      img.className = "ptb-sb-exticon";
+      img.alt = title;
+      img.draggable = false;
+      try {
+        img.src = chrome.runtime.getURL("src/assets/brand/ninja.png");
+      } catch (_e) {}
+      a.appendChild(img);
+    }
     const sync = () => {
       const game = currentGame();
       const league = currentLeague();
@@ -813,6 +827,7 @@
     const header = sbEl("div", "ptb-sb-header");
     header.appendChild(buildLinkBtn("poedb", "PoEDB"));
     header.appendChild(buildLinkBtn("ninja", "poe.ninja"));
+    header.appendChild(buildLinkBtn("github", "GitHub"));
     const searchBtn = sbEl("button", "ptb-sb-searchbtn");
     searchBtn.type = "button";
     setIconBtn(searchBtn, "search", message("searchBookmarks", "Search"));
@@ -922,16 +937,28 @@
     ratePanel.appendChild(rateHits);
     sidebar.appendChild(ratePanel);
     sidebar.appendChild(sbEl("div", "ptb-sb-list"));
-    // 사이드바 위에서 휠을 굴리면 목록만 스크롤(거래소 본문으로 흘려보내지 않음)
+    // 사이드바 휠은 거래소 본문으로 보내지 않음. 언어 메뉴·환율 패널이 스크롤 가능하면 그쪽 우선.
     sidebar.addEventListener(
       "wheel",
       (event) => {
         try {
-          const list = sidebar.querySelector(".ptb-sb-list");
-          if (list) {
-            const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-            list.scrollTop += amount;
+          const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+          let scroller = null;
+          let node = event.target;
+          if (node && node.nodeType !== 1) node = node.parentElement;
+          while (node && node !== sidebar) {
+            const canY = node.scrollHeight > node.clientHeight + 1;
+            if (canY) {
+              const oy = globalThis.getComputedStyle(node).overflowY;
+              if (oy === "auto" || oy === "scroll") {
+                scroller = node;
+                break;
+              }
+            }
+            node = node.parentElement;
           }
+          if (!scroller) scroller = sidebar.querySelector(".ptb-sb-list");
+          if (scroller) scroller.scrollTop += amount;
           event.preventDefault();
           event.stopPropagation();
         } catch (_error) {
@@ -1783,6 +1810,7 @@
             const db = state.sidebar.querySelectorAll(".ptb-sb-extlink");
             if (db[0]) db[0].title = message("openPoedb", "PoEDB");
             if (db[1]) db[1].title = message("openNinja", "poe.ninja");
+            if (db[2]) db[2].title = message("openGithub", "GitHub");
             const fl = state.sidebar.querySelector(".ptb-sb-fxlabel");
             if (fl) fl.title = message("baseCurrency", "Base");
             const rb = state.sidebar.querySelector(".ptb-sb-ratebtn");

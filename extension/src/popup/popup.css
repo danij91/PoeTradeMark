@@ -78,6 +78,9 @@ input {
   display: flex;
   flex-direction: column;
   min-width: 140px;
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border: 1px solid #e0e4ea;
   border-radius: 8px;

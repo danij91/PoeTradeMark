@@ -9,6 +9,7 @@ const LANGS = [
   { lang: "ru", host: "https://ru.pathofexile.com" },
   { lang: "pt", host: "https://br.pathofexile.com" },
   { lang: "th", host: "https://th.pathofexile.com" },
+  { lang: "tw", host: "https://pathofexile.tw" },
 ];
 const GAMES = [
   { key: "poe2", path: "/api/trade2/data/static" },
@@ -66,6 +67,6 @@ const { writeFile } = await import("node:fs/promises");
 const header =
   "// Localized currency names from GGG/Kakao trade static. English comes from ninja.\n" +
   "globalThis.PTB = globalThis.PTB || {};\n" +
-  "PTB.currencyNames = ";
+  "globalThis.PTB.currencyNames = ";
 await writeFile(OUT, header + JSON.stringify(names) + ";\n", "utf8");
 console.log("wrote poe2", Object.keys(names.poe2).length, "poe1", Object.keys(names.poe1).length);
